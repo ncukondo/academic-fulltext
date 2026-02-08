@@ -1,0 +1,51 @@
+name: Create GitHub Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g., v0.1.0)'
+        required: true
+        type: string
+      dry_run:
+        description: 'Dry run (skip actual release creation)'
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Verify tag is on main branch
+        run: |
+          TAG_COMMIT=$(git rev-list -n 1 ${{ inputs.tag || github.ref_name }})
+          if ! git branch -r --contains "$TAG_COMMIT" | grep -q 'origin/main'; then
+            echo "::error::Tag ${{ inputs.tag || github.ref_name }} is not on main branch"
+            exit 1
+          fi
+          echo "✓ Tag is on main branch"
+
+      - name: Create GitHub Release
+        if: inputs.dry_run != true
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          generate_release_notes: true
+
+      - name: Dry run summary
+        if: inputs.dry_run == true
+        run: |
+          echo "::notice::Dry run mode - skipping actual release creation"
+          echo "Would create release for tag: ${{ inputs.tag || github.ref_name }}"
