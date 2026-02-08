@@ -2,14 +2,14 @@
  * Citation key generation for fulltext directories.
  */
 
-import anyAscii from 'any-ascii';
-import { randomUUID } from 'node:crypto';
+import { randomUUID } from "node:crypto";
+import anyAscii from "any-ascii";
 
 /**
  * Generate a collision suffix: a, b, ..., z, aa, ab, ...
  */
 function collisionSuffix(index: number): string {
-  let result = '';
+  let result = "";
   let n = index;
   do {
     result = String.fromCodePoint(97 + (n % 26)) + result;
@@ -26,7 +26,7 @@ const CJK_REGEX = /[\u4e00-\u9fff]/;
  * Handles formats like "Smith, J." → "Smith", "Smith" → "Smith".
  */
 function extractFamilyName(author: string): string {
-  const commaIndex = author.indexOf(',');
+  const commaIndex = author.indexOf(",");
   if (commaIndex >= 0) {
     return author.slice(0, commaIndex).trim();
   }
@@ -41,20 +41,22 @@ function extractFamilyName(author: string): string {
 export function generateCitationKey(
   author: string | undefined,
   year: string | undefined,
-  existingKeys?: string[],
+  existingKeys?: string[]
 ): string {
   // Extract and normalize author
-  const rawFamily = author?.trim() ? extractFamilyName(author) : 'unknown';
+  const rawFamily = author?.trim() ? extractFamilyName(author) : "unknown";
 
   // CJK characters cannot be accurately transliterated to the correct reading
   // (any-ascii maps them to Chinese pinyin, not Japanese romaji etc.)
   // Fall back to 'unknown' for names containing CJK ideographs.
   const normalizedFamily = CJK_REGEX.test(rawFamily)
-    ? 'unknown'
-    : anyAscii(rawFamily).toLowerCase().replace(/[^a-z]/g, '') || 'unknown';
+    ? "unknown"
+    : anyAscii(rawFamily)
+        .toLowerCase()
+        .replace(/[^a-z]/g, "") || "unknown";
 
   // Normalize year
-  const normalizedYear = year?.trim() || '0000';
+  const normalizedYear = year?.trim() || "0000";
 
   const baseKey = `${normalizedFamily}${normalizedYear}`;
 

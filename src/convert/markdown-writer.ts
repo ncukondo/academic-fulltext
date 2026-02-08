@@ -5,13 +5,13 @@
  */
 
 import type {
-  JatsDocument,
-  JatsSection,
-  JatsFootnote,
   BlockElement,
   InlineContent,
+  JatsDocument,
+  JatsFootnote,
   JatsReference,
-} from './types.js';
+  JatsSection,
+} from "./types.js";
 
 /**
  * Format an author's name in abbreviated form (e.g., "Smith J").
@@ -22,7 +22,7 @@ function formatAuthor(author: { surname: string; givenNames?: string }): string 
     .split(/[\s.]+/)
     .filter(Boolean)
     .map((n) => n[0])
-    .join('');
+    .join("");
   return `${author.surname} ${initials}`;
 }
 
@@ -33,30 +33,104 @@ function renderInline(content: InlineContent[]): string {
   return content
     .map((node) => {
       switch (node.type) {
-        case 'text':
+        case "text":
           return node.text;
-        case 'bold':
+        case "bold":
           return `**${renderInline(node.children)}**`;
-        case 'italic':
+        case "italic":
           return `*${renderInline(node.children)}*`;
-        case 'superscript':
+        case "superscript":
           return `^${node.text}^`;
-        case 'subscript':
+        case "subscript":
           return `~${node.text}~`;
-        case 'citation':
+        case "citation":
           return node.text;
-        case 'code':
+        case "code":
           return `\`${node.text}\``;
-        case 'inline-formula':
+        case "inline-formula":
           return node.tex ? `$${node.tex}$` : node.text;
-        case 'link': {
+        case "link": {
           const linkText = renderInline(node.children);
           if (linkText === node.url) return node.url;
           return `[${linkText}](${node.url})`;
         }
       }
     })
-    .join('');
+    .join("");
+}
+
+/**
+ * Render a table block to Markdown.
+ */
+function renderTable(block: Extract<BlockElement, { type: "table" }>): string {
+  const lines: string[] = [];
+  if (block.caption) {
+    lines.push(`*${block.caption}*`);
+    lines.push("");
+  }
+  if (block.headers.length > 0) {
+    lines.push(`| ${block.headers.join(" | ")} |`);
+    lines.push(`| ${block.headers.map(() => "---").join(" | ")} |`);
+  } else if (block.rows.length > 0) {
+    const colCount = block.rows[0]?.length;
+    lines.push(`| ${Array.from({ length: colCount }, () => "").join(" | ")} |`);
+    lines.push(`| ${Array.from({ length: colCount }, () => "---").join(" | ")} |`);
+  }
+  for (const row of block.rows) {
+    lines.push(`| ${row.join(" | ")} |`);
+  }
+  return lines.join("\n");
+}
+
+/**
+ * Render a formula block to Markdown.
+ */
+function renderFormula(block: Extract<BlockElement, { type: "formula" }>): string {
+  const lines: string[] = [];
+  if (block.tex) {
+    lines.push(`$$${block.tex}$$`);
+  } else if (block.text) {
+    lines.push("```");
+    lines.push(block.text);
+    lines.push("```");
+  }
+  if (block.label) {
+    lines.push(block.label);
+  }
+  return lines.join("\n");
+}
+
+/**
+ * Render a definition list block to Markdown.
+ */
+function renderDefList(block: Extract<BlockElement, { type: "def-list" }>): string {
+  const lines: string[] = [];
+  if (block.title) {
+    lines.push(`**${block.title}**`);
+    lines.push("");
+  }
+  for (const item of block.items) {
+    lines.push(`**${item.term}**: ${item.definition}`);
+  }
+  return lines.join("\n");
+}
+
+/**
+ * Render a boxed-text block to Markdown.
+ */
+function renderBoxedText(block: Extract<BlockElement, { type: "boxed-text" }>): string {
+  const lines: string[] = [];
+  if (block.title) {
+    lines.push(`> **${block.title}**`);
+    lines.push(">");
+  }
+  for (const inner of block.content) {
+    const rendered = renderBlock(inner);
+    for (const line of rendered.split("\n")) {
+      lines.push(line === "" ? ">" : `> ${line}`);
+    }
+  }
+  return lines.join("\n");
 }
 
 /**
@@ -64,96 +138,46 @@ function renderInline(content: InlineContent[]): string {
  */
 function renderBlock(block: BlockElement): string {
   switch (block.type) {
-    case 'paragraph':
+    case "paragraph":
       return renderInline(block.content);
 
-    case 'blockquote': {
+    case "blockquote": {
       const text = renderInline(block.content);
       return text
-        .split('\n')
-        .map((line) => (line === '' ? '>' : `> ${line}`))
-        .join('\n');
+        .split("\n")
+        .map((line) => (line === "" ? ">" : `> ${line}`))
+        .join("\n");
     }
 
-    case 'list': {
+    case "list": {
       return block.items
         .map((item, i) => {
-          const prefix = block.ordered ? `${i + 1}. ` : '- ';
+          const prefix = block.ordered ? `${i + 1}. ` : "- ";
           return `${prefix}${renderInline(item)}`;
         })
-        .join('\n');
+        .join("\n");
     }
 
-    case 'table': {
-      const lines: string[] = [];
-      if (block.caption) {
-        lines.push(`*${block.caption}*`);
-        lines.push('');
-      }
-      if (block.headers.length > 0) {
-        lines.push(`| ${block.headers.join(' | ')} |`);
-        lines.push(`| ${block.headers.map(() => '---').join(' | ')} |`);
-      } else if (block.rows.length > 0) {
-        const colCount = block.rows[0]!.length;
-        lines.push(`| ${Array.from({ length: colCount }, () => '').join(' | ')} |`);
-        lines.push(`| ${Array.from({ length: colCount }, () => '---').join(' | ')} |`);
-      }
-      for (const row of block.rows) {
-        lines.push(`| ${row.join(' | ')} |`);
-      }
-      return lines.join('\n');
-    }
+    case "table":
+      return renderTable(block);
 
-    case 'figure': {
-      const label = block.label ?? 'Figure';
+    case "figure": {
+      const label = block.label ?? "Figure";
       const altText = block.caption ? `${label}. ${block.caption}` : label;
       return `![${altText}]()`;
     }
 
-    case 'preformat':
-      return '```\n' + block.text + '\n```';
+    case "preformat":
+      return `\`\`\`\n${block.text}\n\`\`\``;
 
-    case 'formula': {
-      const lines: string[] = [];
-      if (block.tex) {
-        lines.push(`$$${block.tex}$$`);
-      } else if (block.text) {
-        lines.push('```');
-        lines.push(block.text);
-        lines.push('```');
-      }
-      if (block.label) {
-        lines.push(block.label);
-      }
-      return lines.join('\n');
-    }
+    case "formula":
+      return renderFormula(block);
 
-    case 'def-list': {
-      const lines: string[] = [];
-      if (block.title) {
-        lines.push(`**${block.title}**`);
-        lines.push('');
-      }
-      for (const item of block.items) {
-        lines.push(`**${item.term}**: ${item.definition}`);
-      }
-      return lines.join('\n');
-    }
+    case "def-list":
+      return renderDefList(block);
 
-    case 'boxed-text': {
-      const lines: string[] = [];
-      if (block.title) {
-        lines.push(`> **${block.title}**`);
-        lines.push('>');
-      }
-      for (const inner of block.content) {
-        const rendered = renderBlock(inner);
-        rendered.split('\n').forEach((line) => {
-          lines.push(line === '' ? '>' : `> ${line}`);
-        });
-      }
-      return lines.join('\n');
-    }
+    case "boxed-text":
+      return renderBoxedText(block);
   }
 }
 
@@ -162,23 +186,23 @@ function renderBlock(block: BlockElement): string {
  */
 function renderSection(section: JatsSection): string {
   const lines: string[] = [];
-  const heading = '#'.repeat(section.level);
+  const heading = "#".repeat(section.level);
 
   if (section.title.trim()) {
     lines.push(`${heading} ${section.title}`);
-    lines.push('');
+    lines.push("");
   }
 
   for (const block of section.content) {
     lines.push(renderBlock(block));
-    lines.push('');
+    lines.push("");
   }
 
   for (const sub of section.subsections) {
     lines.push(renderSection(sub));
   }
 
-  return lines.join('\n');
+  return lines.join("\n");
 }
 
 /**
@@ -193,161 +217,161 @@ function formatRefPubIds(ref: JatsReference): string {
     links.push(`[pmid:${ref.pmid}](https://pubmed.ncbi.nlm.nih.gov/${ref.pmid}/)`);
   }
   if (ref.pmcid) {
-    links.push(`[pmcid:PMC${ref.pmcid}](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC${ref.pmcid}/)`);
+    links.push(
+      `[pmcid:PMC${ref.pmcid}](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC${ref.pmcid}/)`
+    );
   }
-  return links.join(' ');
+  return links.join(" ");
 }
 
 function renderReferences(references: JatsReference[]): string {
-  if (references.length === 0) return '';
-  const lines: string[] = ['## References', ''];
+  if (references.length === 0) return "";
+  const lines: string[] = ["## References", ""];
   references.forEach((ref, i) => {
     const pubIdLinks = formatRefPubIds(ref);
     const line = pubIdLinks ? `${i + 1}. ${ref.text} ${pubIdLinks}` : `${i + 1}. ${ref.text}`;
     lines.push(line);
   });
-  lines.push('');
-  return lines.join('\n');
+  lines.push("");
+  return lines.join("\n");
 }
 
 /**
  * Render footnotes section.
  */
 function renderFootnotes(footnotes: JatsFootnote[]): string {
-  if (footnotes.length === 0) return '';
-  const lines: string[] = ['## Footnotes', ''];
+  if (footnotes.length === 0) return "";
+  const lines: string[] = ["## Footnotes", ""];
   footnotes.forEach((fn, i) => {
     lines.push(`${i + 1}. ${fn.text}`);
   });
-  lines.push('');
-  return lines.join('\n');
+  lines.push("");
+  return lines.join("\n");
 }
 
 /**
  * Render floats (figures and tables) section.
  */
 function renderFloats(floats: BlockElement[]): string {
-  if (floats.length === 0) return '';
-  const lines: string[] = ['## Figures and Tables', ''];
+  if (floats.length === 0) return "";
+  const lines: string[] = ["## Figures and Tables", ""];
   for (const block of floats) {
     lines.push(renderBlock(block));
-    lines.push('');
+    lines.push("");
   }
-  return lines.join('\n');
+  return lines.join("\n");
 }
 
 /**
- * Convert a parsed JATS document to Markdown string.
+ * Format a publication date as a string (e.g., "2024", "2024-01", "2024-01-15").
  */
-export function writeMarkdown(doc: JatsDocument): string {
+function formatPublicationDate(date: { year: string; month?: string; day?: string }): string {
+  let dateStr = date.year;
+  if (date.month) {
+    dateStr += `-${date.month.padStart(2, "0")}`;
+    if (date.day) dateStr += `-${date.day.padStart(2, "0")}`;
+  }
+  return dateStr;
+}
+
+/**
+ * Format a citation string from volume, issue, and pages.
+ */
+function formatCitation(meta: {
+  volume?: string;
+  issue?: string;
+  pages?: string;
+}): string {
+  if (meta.volume && meta.issue) {
+    let citation = `Vol. ${meta.volume}(${meta.issue})`;
+    if (meta.pages) citation += `, pp. ${meta.pages}`;
+    return citation;
+  }
+  const parts: string[] = [];
+  if (meta.volume) parts.push(`Vol. ${meta.volume}`);
+  if (meta.issue) parts.push(`(${meta.issue})`);
+  if (meta.pages) parts.push(`pp. ${meta.pages}`);
+  return parts.join(", ");
+}
+
+/**
+ * Render document metadata (authors, DOI, journal, etc.) to Markdown lines.
+ */
+function renderMetadata(doc: JatsDocument): string[] {
   const lines: string[] = [];
+  const meta = doc.metadata;
 
   // Title
-  lines.push(`# ${doc.metadata.title}`);
-  lines.push('');
+  lines.push(`# ${meta.title}`);
+  lines.push("");
+
+  // Track position after title to detect if any metadata fields were added
+  const posAfterTitle = lines.length;
 
   // Authors
-  if (doc.metadata.authors.length > 0) {
-    const authorStr = doc.metadata.authors.map(formatAuthor).join(', ');
+  if (meta.authors.length > 0) {
+    const authorStr = meta.authors.map(formatAuthor).join(", ");
     lines.push(`**Authors**: ${authorStr}`);
   }
 
-  // DOI
-  if (doc.metadata.doi) {
-    lines.push(`**DOI**: ${doc.metadata.doi}`);
+  if (meta.doi) lines.push(`**DOI**: ${meta.doi}`);
+  if (meta.pmcid) lines.push(`**PMC**: PMC${meta.pmcid}`);
+  if (meta.pmid) lines.push(`**PMID**: ${meta.pmid}`);
+  if (meta.journal) lines.push(`**Journal**: ${meta.journal}`);
+
+  if (meta.publicationDate) {
+    lines.push(`**Published**: ${formatPublicationDate(meta.publicationDate)}`);
   }
 
-  // PMC
-  if (doc.metadata.pmcid) {
-    lines.push(`**PMC**: PMC${doc.metadata.pmcid}`);
+  if (meta.volume || meta.issue || meta.pages) {
+    lines.push(`**Citation**: ${formatCitation(meta)}`);
   }
 
-  // PMID
-  if (doc.metadata.pmid) {
-    lines.push(`**PMID**: ${doc.metadata.pmid}`);
+  if (meta.articleType) lines.push(`**Article Type**: ${meta.articleType}`);
+
+  if (meta.keywords && meta.keywords.length > 0) {
+    lines.push(`**Keywords**: ${meta.keywords.join(", ")}`);
   }
 
-  // Journal
-  if (doc.metadata.journal) {
-    lines.push(`**Journal**: ${doc.metadata.journal}`);
-  }
+  if (meta.license) lines.push(`**License**: ${meta.license}`);
 
-  // Published date
-  if (doc.metadata.publicationDate) {
-    const d = doc.metadata.publicationDate;
-    let dateStr = d.year;
-    if (d.month) {
-      dateStr += `-${d.month.padStart(2, '0')}`;
-      if (d.day) dateStr += `-${d.day.padStart(2, '0')}`;
-    }
-    lines.push(`**Published**: ${dateStr}`);
-  }
-
-  // Citation (volume/issue/pages)
-  if (doc.metadata.volume || doc.metadata.issue || doc.metadata.pages) {
-    const parts: string[] = [];
-    if (doc.metadata.volume) parts.push(`Vol. ${doc.metadata.volume}`);
-    if (doc.metadata.issue) parts.push(`(${doc.metadata.issue})`);
-    if (doc.metadata.pages) parts.push(`pp. ${doc.metadata.pages}`);
-    // Join: "Vol. 10(2), pp. 100-110" or similar
-    let citation = '';
-    if (doc.metadata.volume && doc.metadata.issue) {
-      citation = `Vol. ${doc.metadata.volume}(${doc.metadata.issue})`;
-      if (doc.metadata.pages) citation += `, pp. ${doc.metadata.pages}`;
-    } else {
-      citation = parts.join(', ');
-    }
-    lines.push(`**Citation**: ${citation}`);
-  }
-
-  // Article type
-  if (doc.metadata.articleType) {
-    lines.push(`**Article Type**: ${doc.metadata.articleType}`);
-  }
-
-  // Keywords
-  if (doc.metadata.keywords && doc.metadata.keywords.length > 0) {
-    lines.push(`**Keywords**: ${doc.metadata.keywords.join(', ')}`);
-  }
-
-  // License
-  if (doc.metadata.license) {
-    lines.push(`**License**: ${doc.metadata.license}`);
-  }
-
-  const hasMetaLines = doc.metadata.authors.length > 0 || doc.metadata.doi || doc.metadata.pmcid || doc.metadata.pmid || doc.metadata.journal || doc.metadata.publicationDate || doc.metadata.volume || doc.metadata.pages || (doc.metadata.keywords && doc.metadata.keywords.length > 0) || doc.metadata.articleType || doc.metadata.license;
-  if (hasMetaLines) {
-    lines.push('');
+  if (lines.length > posAfterTitle) {
+    lines.push("");
   }
 
   // Abstract
-  if (doc.metadata.abstract) {
-    lines.push('## Abstract');
-    lines.push('');
-    lines.push(doc.metadata.abstract);
-    lines.push('');
+  if (meta.abstract) {
+    lines.push("## Abstract");
+    lines.push("");
+    lines.push(meta.abstract);
+    lines.push("");
   }
 
-  // Sections
-  for (const section of doc.sections) {
-    lines.push(renderSection(section));
-  }
+  return lines;
+}
+
+/**
+ * Render trailing sections (acknowledgments, notes, references, appendices,
+ * footnotes, floats) to Markdown lines.
+ */
+function renderTrailingSections(doc: JatsDocument): string[] {
+  const lines: string[] = [];
 
   // Acknowledgments (before References)
   if (doc.acknowledgments) {
-    lines.push('## Acknowledgments');
-    lines.push('');
+    lines.push("## Acknowledgments");
+    lines.push("");
     lines.push(doc.acknowledgments);
-    lines.push('');
+    lines.push("");
   }
 
   // Notes (between Acknowledgments and References)
   if (doc.notes && doc.notes.length > 0) {
     for (const note of doc.notes) {
       lines.push(`## ${note.title}`);
-      lines.push('');
+      lines.push("");
       lines.push(note.text);
-      lines.push('');
+      lines.push("");
     }
   }
 
@@ -373,5 +397,23 @@ export function writeMarkdown(doc: JatsDocument): string {
     lines.push(renderFloats(doc.floats));
   }
 
-  return lines.join('\n').trimEnd() + '\n';
+  return lines;
+}
+
+/**
+ * Convert a parsed JATS document to Markdown string.
+ */
+export function writeMarkdown(doc: JatsDocument): string {
+  const lines: string[] = [];
+
+  lines.push(...renderMetadata(doc));
+
+  // Sections
+  for (const section of doc.sections) {
+    lines.push(renderSection(section));
+  }
+
+  lines.push(...renderTrailingSections(doc));
+
+  return `${lines.join("\n").trimEnd()}\n`;
 }

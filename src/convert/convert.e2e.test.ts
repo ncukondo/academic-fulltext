@@ -1,14 +1,14 @@
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 /**
  * E2E Tests for PMC XML to Markdown conversion.
  *
  * Tests the full conversion pipeline with a realistic PMC XML document,
  * verifying Markdown output structure and metadata preservation.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, writeFile, readFile, rm, mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
-import { convertPmcXmlToMarkdown } from './index.js';
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { convertPmcXmlToMarkdown } from "./index.js";
 
 /**
  * Realistic PMC XML fixture with multiple sections, tables, figures,
@@ -177,119 +177,123 @@ const REALISTIC_PMC_XML = `<?xml version="1.0" encoding="UTF-8"?>
   </back>
 </article>`;
 
-describe('PMC XML to Markdown E2E conversion', () => {
+describe("PMC XML to Markdown E2E conversion", () => {
   let tmpDir: string;
 
   beforeEach(async () => {
-    tmpDir = await mkdtemp(join(tmpdir(), 'convert-e2e-'));
+    tmpDir = await mkdtemp(join(tmpdir(), "convert-e2e-"));
   });
 
   afterEach(async () => {
     await rm(tmpDir, { recursive: true, force: true });
   });
 
-  it('converts a realistic PMC XML file to well-structured Markdown', async () => {
-    const xmlPath = join(tmpDir, 'fulltext.xml');
-    const mdPath = join(tmpDir, 'fulltext.md');
-    await writeFile(xmlPath, REALISTIC_PMC_XML, 'utf-8');
+  it("converts a realistic PMC XML file to well-structured Markdown", async () => {
+    const xmlPath = join(tmpDir, "fulltext.xml");
+    const mdPath = join(tmpDir, "fulltext.md");
+    await writeFile(xmlPath, REALISTIC_PMC_XML, "utf-8");
 
     const result = await convertPmcXmlToMarkdown(xmlPath, mdPath);
 
     expect(result.success).toBe(true);
     expect(result.title).toBe(
-      "Deep Learning Approaches for Early Detection of Alzheimer's Disease: A Systematic Review and Meta-Analysis",
+      "Deep Learning Approaches for Early Detection of Alzheimer's Disease: A Systematic Review and Meta-Analysis"
     );
     expect(result.sections).toBeGreaterThanOrEqual(5);
     expect(result.references).toBe(5);
 
-    const md = await readFile(mdPath, 'utf-8');
+    const md = await readFile(mdPath, "utf-8");
 
     // Title as H1
     expect(md).toMatch(/^# Deep Learning Approaches for Early Detection/m);
 
     // Metadata header
-    expect(md).toContain('**Authors**: Chen W, Müller H, Tanaka Y');
-    expect(md).toContain('**DOI**: 10.1038/s41591-024-02890-7');
-    expect(md).toContain('**PMC**: PMC9876543');
-    expect(md).toContain('**PMID**: 38654321');
-    expect(md).toContain('**Journal**: Nature Medicine');
-    expect(md).toContain('**Published**: 2024-03-15');
-    expect(md).toContain('**Citation**: Vol. 30(3), pp. 890-905');
-    expect(md).toContain('**Article Type**: research-article');
+    expect(md).toContain("**Authors**: Chen W, Müller H, Tanaka Y");
+    expect(md).toContain("**DOI**: 10.1038/s41591-024-02890-7");
+    expect(md).toContain("**PMC**: PMC9876543");
+    expect(md).toContain("**PMID**: 38654321");
+    expect(md).toContain("**Journal**: Nature Medicine");
+    expect(md).toContain("**Published**: 2024-03-15");
+    expect(md).toContain("**Citation**: Vol. 30(3), pp. 890-905");
+    expect(md).toContain("**Article Type**: research-article");
     expect(md).toContain("**Keywords**: deep learning, Alzheimer's disease, neuroimaging");
-    expect(md).toContain('**License**: https://creativecommons.org/licenses/by/4.0/');
+    expect(md).toContain("**License**: https://creativecommons.org/licenses/by/4.0/");
 
     // Structured abstract
-    expect(md).toContain('## Abstract');
-    expect(md).toContain('Background');
-    expect(md).toContain('Early detection of Alzheimer');
+    expect(md).toContain("## Abstract");
+    expect(md).toContain("Background");
+    expect(md).toContain("Early detection of Alzheimer");
 
     // Body sections as H2
-    expect(md).toContain('## Introduction');
-    expect(md).toContain('## Methods');
-    expect(md).toContain('## Results');
-    expect(md).toContain('## Discussion');
-    expect(md).toContain('## Conclusions');
+    expect(md).toContain("## Introduction");
+    expect(md).toContain("## Methods");
+    expect(md).toContain("## Results");
+    expect(md).toContain("## Discussion");
+    expect(md).toContain("## Conclusions");
 
     // Nested subsections as H3
-    expect(md).toContain('### Search Strategy');
-    expect(md).toContain('### Inclusion Criteria');
-    expect(md).toContain('### Statistical Analysis');
-    expect(md).toContain('### Study Characteristics');
-    expect(md).toContain('### Model Performance');
+    expect(md).toContain("### Search Strategy");
+    expect(md).toContain("### Inclusion Criteria");
+    expect(md).toContain("### Statistical Analysis");
+    expect(md).toContain("### Study Characteristics");
+    expect(md).toContain("### Model Performance");
 
     // Inline formatting preserved (note: fast-xml-parser without preserveOrder
     // groups same-named sibling elements, so interleaved text may shift)
-    expect(md).toContain('**deep learning**');
-    expect(md).toContain('*p*');
+    expect(md).toContain("**deep learning**");
+    expect(md).toContain("*p*");
 
     // Citation markers preserved
-    expect(md).toContain('[1]');
-    expect(md).toContain('[2]');
-    expect(md).toContain('[5]');
+    expect(md).toContain("[1]");
+    expect(md).toContain("[2]");
+    expect(md).toContain("[5]");
 
     // Ordered list
-    expect(md).toContain('1. Evaluate the diagnostic accuracy');
-    expect(md).toContain('2. Compare different architectural approaches');
-    expect(md).toContain('3. Assess the methodological quality');
+    expect(md).toContain("1. Evaluate the diagnostic accuracy");
+    expect(md).toContain("2. Compare different architectural approaches");
+    expect(md).toContain("3. Assess the methodological quality");
 
     // Unordered list
-    expect(md).toContain('- Used deep learning for AD classification');
-    expect(md).toContain('- Most studies used retrospective data');
+    expect(md).toContain("- Used deep learning for AD classification");
+    expect(md).toContain("- Most studies used retrospective data");
 
     // Tables
-    expect(md).toContain('| Architecture | Studies (n) | Pooled Sensitivity | Pooled Specificity |');
-    expect(md).toContain('| CNN | 78 | 0.89 | 0.87 |');
-    expect(md).toContain('| Transformer | 31 | 0.93 | 0.91 |');
+    expect(md).toContain(
+      "| Architecture | Studies (n) | Pooled Sensitivity | Pooled Specificity |"
+    );
+    expect(md).toContain("| CNN | 78 | 0.89 | 0.87 |");
+    expect(md).toContain("| Transformer | 31 | 0.93 | 0.91 |");
 
     // Figures
-    expect(md).toContain('![Figure 1. PRISMA flow diagram showing study selection process]()');
-    expect(md).toContain('![Figure 2. Forest plot of sensitivity estimates across DL architectures]()');
+    expect(md).toContain("![Figure 1. PRISMA flow diagram showing study selection process]()");
+    expect(md).toContain(
+      "![Figure 2. Forest plot of sensitivity estimates across DL architectures]()"
+    );
 
     // References section
-    expect(md).toContain('## References');
-    expect(md).toContain('1. World Health Organization');
-    expect(md).toContain('5. Jack CR Jr');
+    expect(md).toContain("## References");
+    expect(md).toContain("1. World Health Organization");
+    expect(md).toContain("5. Jack CR Jr");
   });
 
-  it('verifies Markdown output structure with section ordering', async () => {
-    const xmlPath = join(tmpDir, 'fulltext.xml');
-    const mdPath = join(tmpDir, 'fulltext.md');
-    await writeFile(xmlPath, REALISTIC_PMC_XML, 'utf-8');
+  it("verifies Markdown output structure with section ordering", async () => {
+    const xmlPath = join(tmpDir, "fulltext.xml");
+    const mdPath = join(tmpDir, "fulltext.md");
+    await writeFile(xmlPath, REALISTIC_PMC_XML, "utf-8");
 
     await convertPmcXmlToMarkdown(xmlPath, mdPath);
-    const md = await readFile(mdPath, 'utf-8');
-    const lines = md.split('\n');
+    const md = await readFile(mdPath, "utf-8");
+    const lines = md.split("\n");
 
     // Find section positions to verify ordering
-    const titleLine = lines.findIndex((l) => l.startsWith('# Deep Learning'));
-    const abstractLine = lines.findIndex((l) => l === '## Abstract');
-    const introLine = lines.findIndex((l) => l === '## Introduction');
-    const methodsLine = lines.findIndex((l) => l === '## Methods');
-    const resultsLine = lines.findIndex((l) => l === '## Results');
-    const discussionLine = lines.findIndex((l) => l === '## Discussion');
-    const conclusionsLine = lines.findIndex((l) => l === '## Conclusions');
-    const referencesLine = lines.findIndex((l) => l === '## References');
+    const titleLine = lines.findIndex((l) => l.startsWith("# Deep Learning"));
+    const abstractLine = lines.findIndex((l) => l === "## Abstract");
+    const introLine = lines.findIndex((l) => l === "## Introduction");
+    const methodsLine = lines.findIndex((l) => l === "## Methods");
+    const resultsLine = lines.findIndex((l) => l === "## Results");
+    const discussionLine = lines.findIndex((l) => l === "## Discussion");
+    const conclusionsLine = lines.findIndex((l) => l === "## Conclusions");
+    const referencesLine = lines.findIndex((l) => l === "## References");
 
     // All sections should be present
     expect(titleLine).toBeGreaterThanOrEqual(0);
@@ -302,61 +306,61 @@ describe('PMC XML to Markdown E2E conversion', () => {
     expect(referencesLine).toBeGreaterThan(conclusionsLine);
   });
 
-  it('preserves metadata in meta.json after conversion', async () => {
-    const articleDir = join(tmpDir, 'article');
+  it("preserves metadata in meta.json after conversion", async () => {
+    const articleDir = join(tmpDir, "article");
     await mkdir(articleDir, { recursive: true });
 
-    const xmlPath = join(articleDir, 'fulltext.xml');
-    const mdPath = join(articleDir, 'fulltext.md');
-    const metaPath = join(articleDir, 'meta.json');
+    const xmlPath = join(articleDir, "fulltext.xml");
+    const mdPath = join(articleDir, "fulltext.md");
+    const metaPath = join(articleDir, "meta.json");
 
-    await writeFile(xmlPath, REALISTIC_PMC_XML, 'utf-8');
+    await writeFile(xmlPath, REALISTIC_PMC_XML, "utf-8");
     await writeFile(
       metaPath,
       JSON.stringify(
         {
-          dirName: 'chen2024-abc12345',
-          citationKey: 'chen2024',
-          uuid: 'abc12345-test-uuid',
+          dirName: "chen2024-abc12345",
+          citationKey: "chen2024",
+          uuid: "abc12345-test-uuid",
           title: "Deep Learning Approaches for Early Detection of Alzheimer's Disease",
-          oaStatus: 'gold',
+          oaStatus: "gold",
           files: {
             xml: {
-              filename: 'fulltext.xml',
-              source: 'pmc',
-              retrievedAt: '2024-06-15T10:00:00.000Z',
+              filename: "fulltext.xml",
+              source: "pmc",
+              retrievedAt: "2024-06-15T10:00:00.000Z",
             },
           },
         },
         null,
-        2,
+        2
       ),
-      'utf-8',
+      "utf-8"
     );
 
     const result = await convertPmcXmlToMarkdown(xmlPath, mdPath, metaPath);
     expect(result.success).toBe(true);
 
     // Verify meta.json was updated
-    const metaRaw = await readFile(metaPath, 'utf-8');
+    const metaRaw = await readFile(metaPath, "utf-8");
     const meta = JSON.parse(metaRaw);
 
     // Original fields preserved
-    expect(meta.dirName).toBe('chen2024-abc12345');
-    expect(meta.citationKey).toBe('chen2024');
-    expect(meta.uuid).toBe('abc12345-test-uuid');
-    expect(meta.files.xml.source).toBe('pmc');
+    expect(meta.dirName).toBe("chen2024-abc12345");
+    expect(meta.citationKey).toBe("chen2024");
+    expect(meta.uuid).toBe("abc12345-test-uuid");
+    expect(meta.files.xml.source).toBe("pmc");
 
     // Markdown file info added
     expect(meta.files.markdown).toBeDefined();
-    expect(meta.files.markdown.filename).toBe('fulltext.md');
-    expect(meta.files.markdown.source).toBe('conversion');
-    expect(meta.files.markdown.convertedFrom).toBe('fulltext.xml');
+    expect(meta.files.markdown.filename).toBe("fulltext.md");
+    expect(meta.files.markdown.source).toBe("conversion");
+    expect(meta.files.markdown.convertedFrom).toBe("fulltext.xml");
     expect(meta.files.markdown.size).toBeGreaterThan(0);
     expect(meta.files.markdown.retrievedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
-  it('handles XML with minimal content gracefully', async () => {
+  it("handles XML with minimal content gracefully", async () => {
     const minimalXml = `<?xml version="1.0" encoding="UTF-8"?>
 <article>
   <front>
@@ -371,22 +375,22 @@ describe('PMC XML to Markdown E2E conversion', () => {
   </body>
 </article>`;
 
-    const xmlPath = join(tmpDir, 'minimal.xml');
-    const mdPath = join(tmpDir, 'minimal.md');
-    await writeFile(xmlPath, minimalXml, 'utf-8');
+    const xmlPath = join(tmpDir, "minimal.xml");
+    const mdPath = join(tmpDir, "minimal.md");
+    await writeFile(xmlPath, minimalXml, "utf-8");
 
     const result = await convertPmcXmlToMarkdown(xmlPath, mdPath);
     expect(result.success).toBe(true);
-    expect(result.title).toBe('Short Communication');
+    expect(result.title).toBe("Short Communication");
 
-    const md = await readFile(mdPath, 'utf-8');
-    expect(md).toContain('# Short Communication');
-    expect(md).toContain('A single paragraph without any sections.');
+    const md = await readFile(mdPath, "utf-8");
+    expect(md).toContain("# Short Communication");
+    expect(md).toContain("A single paragraph without any sections.");
     // Should not have References section since there are none
-    expect(md).not.toContain('## References');
+    expect(md).not.toContain("## References");
   });
 
-  it('preserves interleaved citations and italic text in correct positions', async () => {
+  it("preserves interleaved citations and italic text in correct positions", async () => {
     const interleavedXml = `<?xml version="1.0" encoding="UTF-8"?>
 <article>
   <front>
@@ -412,23 +416,23 @@ describe('PMC XML to Markdown E2E conversion', () => {
   </back>
 </article>`;
 
-    const xmlPath = join(tmpDir, 'interleaved.xml');
-    const mdPath = join(tmpDir, 'interleaved.md');
-    await writeFile(xmlPath, interleavedXml, 'utf-8');
+    const xmlPath = join(tmpDir, "interleaved.xml");
+    const mdPath = join(tmpDir, "interleaved.md");
+    await writeFile(xmlPath, interleavedXml, "utf-8");
 
     const result = await convertPmcXmlToMarkdown(xmlPath, mdPath);
     expect(result.success).toBe(true);
 
-    const md = await readFile(mdPath, 'utf-8');
+    const md = await readFile(mdPath, "utf-8");
 
     // Citations should appear inline at their correct positions
-    expect(md).toContain('The adage [1]. Several studies [2,3].');
+    expect(md).toContain("The adage [1]. Several studies [2,3].");
 
     // Italic text should appear at correct positions with proper spacing
-    expect(md).toContain('this is the *yanegawara* system. Under the *yanegawara* system');
+    expect(md).toContain("this is the *yanegawara* system. Under the *yanegawara* system");
   });
 
-  it('handles <citation-alternatives> references without duplication', async () => {
+  it("handles <citation-alternatives> references without duplication", async () => {
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <article>
   <front>
@@ -467,23 +471,23 @@ describe('PMC XML to Markdown E2E conversion', () => {
   </back>
 </article>`;
 
-    const xmlPath = join(tmpDir, 'cit-alt.xml');
-    const mdPath = join(tmpDir, 'cit-alt.md');
-    await writeFile(xmlPath, xml, 'utf-8');
+    const xmlPath = join(tmpDir, "cit-alt.xml");
+    const mdPath = join(tmpDir, "cit-alt.md");
+    await writeFile(xmlPath, xml, "utf-8");
 
     const result = await convertPmcXmlToMarkdown(xmlPath, mdPath);
     expect(result.success).toBe(true);
     expect(result.references).toBe(1);
 
-    const md = await readFile(mdPath, 'utf-8');
+    const md = await readFile(mdPath, "utf-8");
 
     // Reference should use mixed-citation text, not duplicated
-    expect(md).toContain('Bowyer ER, Shaw SC');
+    expect(md).toContain("Bowyer ER, Shaw SC");
     // Should NOT have concatenated text like "BowyerERShawSC"
     expect(md).not.toMatch(/BowyerER/);
   });
 
-  it('handles <mixed-citation> with <string-name> elements with proper spacing', async () => {
+  it("handles <mixed-citation> with <string-name> elements with proper spacing", async () => {
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <article>
   <front>
@@ -512,25 +516,25 @@ describe('PMC XML to Markdown E2E conversion', () => {
   </back>
 </article>`;
 
-    const xmlPath = join(tmpDir, 'string-name.xml');
-    const mdPath = join(tmpDir, 'string-name.md');
-    await writeFile(xmlPath, xml, 'utf-8');
+    const xmlPath = join(tmpDir, "string-name.xml");
+    const mdPath = join(tmpDir, "string-name.md");
+    await writeFile(xmlPath, xml, "utf-8");
 
     const result = await convertPmcXmlToMarkdown(xmlPath, mdPath);
     expect(result.success).toBe(true);
     expect(result.references).toBe(1);
 
-    const md = await readFile(mdPath, 'utf-8');
+    const md = await readFile(mdPath, "utf-8");
 
     // Author names should have proper spacing
-    expect(md).toContain('McGuire N');
-    expect(md).toContain('Acai A');
+    expect(md).toContain("McGuire N");
+    expect(md).toContain("Acai A");
     // Should NOT have concatenated names
-    expect(md).not.toContain('McGuireN');
-    expect(md).not.toContain('AcaiA');
+    expect(md).not.toContain("McGuireN");
+    expect(md).not.toContain("AcaiA");
   });
 
-  it('converts article with back matter sections (ack, appendices, footnotes)', async () => {
+  it("converts article with back matter sections (ack, appendices, footnotes)", async () => {
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <article>
   <front>
@@ -577,47 +581,47 @@ describe('PMC XML to Markdown E2E conversion', () => {
   </back>
 </article>`;
 
-    const xmlPath = join(tmpDir, 'back-matter.xml');
-    const mdPath = join(tmpDir, 'back-matter.md');
-    await writeFile(xmlPath, xml, 'utf-8');
+    const xmlPath = join(tmpDir, "back-matter.xml");
+    const mdPath = join(tmpDir, "back-matter.md");
+    await writeFile(xmlPath, xml, "utf-8");
 
     const result = await convertPmcXmlToMarkdown(xmlPath, mdPath);
     expect(result.success).toBe(true);
 
-    const md = await readFile(mdPath, 'utf-8');
+    const md = await readFile(mdPath, "utf-8");
 
     // Body sections
-    expect(md).toContain('## Introduction');
-    expect(md).toContain('Main body content.');
+    expect(md).toContain("## Introduction");
+    expect(md).toContain("Main body content.");
 
     // Acknowledgments before References
-    expect(md).toContain('## Acknowledgments');
-    expect(md).toContain('We thank the funding agency.');
-    expect(md).toContain('We also thank the participants.');
-    const ackPos = md.indexOf('## Acknowledgments');
-    const refPos = md.indexOf('## References');
+    expect(md).toContain("## Acknowledgments");
+    expect(md).toContain("We thank the funding agency.");
+    expect(md).toContain("We also thank the participants.");
+    const ackPos = md.indexOf("## Acknowledgments");
+    const refPos = md.indexOf("## References");
     expect(ackPos).toBeLessThan(refPos);
 
     // References
-    expect(md).toContain('## References');
-    expect(md).toContain('1. Smith J. A study. Nature. 2024.');
+    expect(md).toContain("## References");
+    expect(md).toContain("1. Smith J. A study. Nature. 2024.");
 
     // Appendices after References
-    expect(md).toContain('## Appendix A: Search Strategy');
-    expect(md).toContain('### PubMed Search');
-    expect(md).toContain('((systematic review) AND (meta-analysis))');
-    expect(md).toContain('## Appendix B: Data Tables');
-    expect(md).toContain('Supplementary data content.');
-    const appPos = md.indexOf('## Appendix A');
+    expect(md).toContain("## Appendix A: Search Strategy");
+    expect(md).toContain("### PubMed Search");
+    expect(md).toContain("((systematic review) AND (meta-analysis))");
+    expect(md).toContain("## Appendix B: Data Tables");
+    expect(md).toContain("Supplementary data content.");
+    const appPos = md.indexOf("## Appendix A");
     expect(appPos).toBeGreaterThan(refPos);
 
     // Footnotes
-    expect(md).toContain('## Footnotes');
-    expect(md).toContain('1. Conflict of interest: none declared.');
-    expect(md).toContain('2. Trial registration: NCT12345678.');
+    expect(md).toContain("## Footnotes");
+    expect(md).toContain("1. Conflict of interest: none declared.");
+    expect(md).toContain("2. Trial registration: NCT12345678.");
   });
 
-  it('converts article with floats-group figures and tables', async () => {
+  it("converts article with floats-group figures and tables", async () => {
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <article xmlns:xlink="http://www.w3.org/1999/xlink">
   <front>
@@ -653,28 +657,28 @@ describe('PMC XML to Markdown E2E conversion', () => {
   </floats-group>
 </article>`;
 
-    const xmlPath = join(tmpDir, 'floats-group.xml');
-    const mdPath = join(tmpDir, 'floats-group.md');
-    await writeFile(xmlPath, xml, 'utf-8');
+    const xmlPath = join(tmpDir, "floats-group.xml");
+    const mdPath = join(tmpDir, "floats-group.md");
+    await writeFile(xmlPath, xml, "utf-8");
 
     const result = await convertPmcXmlToMarkdown(xmlPath, mdPath);
     expect(result.success).toBe(true);
 
-    const md = await readFile(mdPath, 'utf-8');
+    const md = await readFile(mdPath, "utf-8");
 
     // Body content
-    expect(md).toContain('## Results');
-    expect(md).toContain('See Figure 1 and Table 1.');
+    expect(md).toContain("## Results");
+    expect(md).toContain("See Figure 1 and Table 1.");
 
     // Floats section
-    expect(md).toContain('## Figures and Tables');
-    expect(md).toContain('![Figure 1. PRISMA flow diagram]()');
-    expect(md).toContain('| Group | N |');
-    expect(md).toContain('| Control | 50 |');
-    expect(md).toContain('| Intervention | 48 |');
+    expect(md).toContain("## Figures and Tables");
+    expect(md).toContain("![Figure 1. PRISMA flow diagram]()");
+    expect(md).toContain("| Group | N |");
+    expect(md).toContain("| Control | 50 |");
+    expect(md).toContain("| Intervention | 48 |");
   });
 
-  it('preserves ext-link, monospace, and inline-formula in Markdown output', async () => {
+  it("preserves ext-link, monospace, and inline-formula in Markdown output", async () => {
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <article xmlns:xlink="http://www.w3.org/1999/xlink">
   <front>
@@ -699,32 +703,32 @@ describe('PMC XML to Markdown E2E conversion', () => {
   </body>
 </article>`;
 
-    const xmlPath = join(tmpDir, 'inline.xml');
-    const mdPath = join(tmpDir, 'inline.md');
-    await writeFile(xmlPath, xml, 'utf-8');
+    const xmlPath = join(tmpDir, "inline.xml");
+    const mdPath = join(tmpDir, "inline.md");
+    await writeFile(xmlPath, xml, "utf-8");
 
     const result = await convertPmcXmlToMarkdown(xmlPath, mdPath);
     expect(result.success).toBe(true);
 
-    const md = await readFile(mdPath, 'utf-8');
+    const md = await readFile(mdPath, "utf-8");
 
     // ext-link: bare URL when display text matches URL
-    expect(md).toContain('https://www.r-project.org/');
+    expect(md).toContain("https://www.r-project.org/");
     // ext-link: Markdown link when display text differs
-    expect(md).toContain('[our data repository](https://example.com/data)');
+    expect(md).toContain("[our data repository](https://example.com/data)");
     // monospace: backtick-quoted
-    expect(md).toContain('`tidyverse`');
+    expect(md).toContain("`tidyverse`");
     // inline-formula: LaTeX notation
-    expect(md).toContain('$p < 0.05$');
+    expect(md).toContain("$p < 0.05$");
     // underline: text preserved
-    expect(md).toContain('primary outcome');
+    expect(md).toContain("primary outcome");
     // sc: text preserved
-    expect(md).toContain('Smith');
+    expect(md).toContain("Smith");
     // uri: link preserved
-    expect(md).toContain('https://doi.org/10.5281/zenodo.123');
+    expect(md).toContain("https://doi.org/10.5281/zenodo.123");
   });
 
-  it('converts boxed-text, def-list, disp-formula, preformat, and supplementary-material', async () => {
+  it("converts boxed-text, def-list, disp-formula, preformat, and supplementary-material", async () => {
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <article>
   <front>
@@ -775,43 +779,43 @@ DEF456    98      0.87
   </body>
 </article>`;
 
-    const xmlPath = join(tmpDir, 'block-elements.xml');
-    const mdPath = join(tmpDir, 'block-elements.md');
-    await writeFile(xmlPath, xml, 'utf-8');
+    const xmlPath = join(tmpDir, "block-elements.xml");
+    const mdPath = join(tmpDir, "block-elements.md");
+    await writeFile(xmlPath, xml, "utf-8");
 
     const result = await convertPmcXmlToMarkdown(xmlPath, mdPath);
     expect(result.success).toBe(true);
 
-    const md = await readFile(mdPath, 'utf-8');
+    const md = await readFile(mdPath, "utf-8");
 
     // Boxed text renders as blockquote with bold title
-    expect(md).toContain('> **Key Points**');
-    expect(md).toContain('> Point 1: Early screening is essential.');
-    expect(md).toContain('> Point 2: Biomarkers improve accuracy.');
+    expect(md).toContain("> **Key Points**");
+    expect(md).toContain("> Point 1: Early screening is essential.");
+    expect(md).toContain("> Point 2: Biomarkers improve accuracy.");
 
     // Definition list renders with bold terms
-    expect(md).toContain('**Abbreviations**');
-    expect(md).toContain('**RCT**: Randomized controlled trial');
-    expect(md).toContain('**CI**: Confidence interval');
+    expect(md).toContain("**Abbreviations**");
+    expect(md).toContain("**RCT**: Randomized controlled trial");
+    expect(md).toContain("**CI**: Confidence interval");
 
     // Formula with alternatives renders as LaTeX
-    expect(md).toContain('$$E = mc^2$$');
-    expect(md).toContain('(1)');
+    expect(md).toContain("$$E = mc^2$$");
+    expect(md).toContain("(1)");
 
     // Formula with direct tex-math
-    expect(md).toContain('$$F = ma$$');
+    expect(md).toContain("$$F = ma$$");
 
     // Preformatted text renders as code block
-    expect(md).toContain('```');
-    expect(md).toContain('SEQUENCE  LENGTH  SCORE');
-    expect(md).toContain('DEF456    98      0.87');
+    expect(md).toContain("```");
+    expect(md).toContain("SEQUENCE  LENGTH  SCORE");
+    expect(md).toContain("DEF456    98      0.87");
 
     // Supplementary material renders as paragraph
-    expect(md).toContain('Supplement 1');
-    expect(md).toContain('Raw data tables');
+    expect(md).toContain("Supplement 1");
+    expect(md).toContain("Raw data tables");
   });
 
-  it('converts article with back matter <notes> sections (author contributions, funding, declarations)', async () => {
+  it("converts article with back matter <notes> sections (author contributions, funding, declarations)", async () => {
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <article xmlns:xlink="http://www.w3.org/1999/xlink" article-type="research-article">
   <front>
@@ -877,59 +881,59 @@ DEF456    98      0.87
   </back>
 </article>`;
 
-    const xmlPath = join(tmpDir, 'notes-test.xml');
-    const mdPath = join(tmpDir, 'notes-test.md');
-    await writeFile(xmlPath, xml, 'utf-8');
+    const xmlPath = join(tmpDir, "notes-test.xml");
+    const mdPath = join(tmpDir, "notes-test.md");
+    await writeFile(xmlPath, xml, "utf-8");
 
     const result = await convertPmcXmlToMarkdown(xmlPath, mdPath);
     expect(result.success).toBe(true);
 
-    const md = await readFile(mdPath, 'utf-8');
+    const md = await readFile(mdPath, "utf-8");
 
     // Body
-    expect(md).toContain('## Introduction');
+    expect(md).toContain("## Introduction");
 
     // Acknowledgments
-    expect(md).toContain('## Acknowledgments');
-    expect(md).toContain('The authors acknowledge the assistance');
+    expect(md).toContain("## Acknowledgments");
+    expect(md).toContain("The authors acknowledge the assistance");
 
     // Author contributions note
-    expect(md).toContain('## Author contributions');
-    expect(md).toContain('TK and SM designed the study');
+    expect(md).toContain("## Author contributions");
+    expect(md).toContain("TK and SM designed the study");
 
     // Funding note
-    expect(md).toContain('## Funding');
-    expect(md).toContain('NIH Grant R01-AG12345');
+    expect(md).toContain("## Funding");
+    expect(md).toContain("NIH Grant R01-AG12345");
 
     // Data availability note
-    expect(md).toContain('## Data availability');
-    expect(md).toContain('available from the corresponding author');
+    expect(md).toContain("## Data availability");
+    expect(md).toContain("available from the corresponding author");
 
     // Declarations sub-sections (expanded from nested <sec>)
-    expect(md).toContain('## Ethics approval and consent to participate');
-    expect(md).toContain('Institutional Review Board');
-    expect(md).toContain('## Consent for publication');
-    expect(md).toContain('Not applicable.');
-    expect(md).toContain('## Competing interests');
-    expect(md).toContain('no competing interests');
+    expect(md).toContain("## Ethics approval and consent to participate");
+    expect(md).toContain("Institutional Review Board");
+    expect(md).toContain("## Consent for publication");
+    expect(md).toContain("Not applicable.");
+    expect(md).toContain("## Competing interests");
+    expect(md).toContain("no competing interests");
 
     // Abbreviations note
-    expect(md).toContain('## Abbreviations');
-    expect(md).toContain('AD: Alzheimer');
+    expect(md).toContain("## Abbreviations");
+    expect(md).toContain("AD: Alzheimer");
 
     // References
-    expect(md).toContain('## References');
-    expect(md).toContain('1. Smith J. A study. Nature. 2024.');
+    expect(md).toContain("## References");
+    expect(md).toContain("1. Smith J. A study. Nature. 2024.");
 
     // Footnotes with proper spacing
-    expect(md).toContain('## Footnotes');
+    expect(md).toContain("## Footnotes");
     expect(md).toContain("Publisher's Note Springer Nature remains neutral");
 
     // Ordering: Acknowledgments → Notes → References → Footnotes
-    const ackPos = md.indexOf('## Acknowledgments');
-    const authorContribPos = md.indexOf('## Author contributions');
-    const refPos = md.indexOf('## References');
-    const footnotesPos = md.indexOf('## Footnotes');
+    const ackPos = md.indexOf("## Acknowledgments");
+    const authorContribPos = md.indexOf("## Author contributions");
+    const refPos = md.indexOf("## References");
+    const footnotesPos = md.indexOf("## Footnotes");
     expect(ackPos).toBeLessThan(authorContribPos);
     expect(authorContribPos).toBeLessThan(refPos);
     expect(refPos).toBeLessThan(footnotesPos);

@@ -2,8 +2,8 @@
  * PDF downloader with retry and error handling.
  */
 
-import { writeFile, mkdir } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 
 export interface DownloadOptions {
   /** Number of retry attempts (default: 3) */
@@ -22,18 +22,54 @@ export interface DownloadResult {
 const NON_RETRYABLE_STATUSES = new Set([400, 401, 403, 404, 405, 410]);
 
 /** Content types accepted as valid PDF responses */
-const VALID_CONTENT_TYPES = ['application/pdf', 'application/octet-stream'];
+const VALID_CONTENT_TYPES = ["application/pdf", "application/octet-stream"];
 
-const USER_AGENT = 'search-hub/0.8.0 (https://github.com/ncukondo/search-hub)';
+const USER_AGENT = "search-hub/0.8.0 (https://github.com/ncukondo/search-hub)";
 
 function isValidPdfContentType(contentType: string | null): boolean {
   if (!contentType) return false;
-  const base = (contentType.split(';')[0] ?? '').trim().toLowerCase();
+  const base = (contentType.split(";")[0] ?? "").trim().toLowerCase();
   return VALID_CONTENT_TYPES.includes(base);
 }
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+type AttemptResult =
+  | { kind: "success"; result: DownloadResult }
+  | { kind: "fail"; result: DownloadResult }
+  | { kind: "retry"; error: string };
+
+async function attemptDownload(url: string, destPath: string): Promise<AttemptResult> {
+  const response = await fetch(url, {
+    headers: { "User-Agent": USER_AGENT },
+  });
+
+  if (!response.ok) {
+    const error = `HTTP ${response.status} ${response.statusText}`;
+    if (NON_RETRYABLE_STATUSES.has(response.status)) {
+      return { kind: "fail", result: { success: false, error } };
+    }
+    return { kind: "retry", error };
+  }
+
+  const contentType = response.headers.get("content-type");
+  if (!isValidPdfContentType(contentType)) {
+    return {
+      kind: "fail",
+      result: {
+        success: false,
+        error: `Unexpected Content-Type: ${contentType ?? "none"}`,
+      },
+    };
+  }
+
+  const buffer = await response.arrayBuffer();
+  await mkdir(dirname(destPath), { recursive: true });
+  await writeFile(destPath, Buffer.from(buffer));
+
+  return { kind: "success", result: { success: true, size: buffer.byteLength } };
 }
 
 /**
@@ -44,7 +80,7 @@ function sleep(ms: number): Promise<void> {
 export async function downloadPdf(
   url: string,
   destPath: string,
-  options?: DownloadOptions,
+  options?: DownloadOptions
 ): Promise<DownloadResult> {
   const retries = options?.retries ?? 3;
   const retryDelay = options?.retryDelay ?? 1000;
@@ -53,48 +89,19 @@ export async function downloadPdf(
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      const response = await fetch(url, {
-        headers: { 'User-Agent': USER_AGENT },
-      });
-
-      if (!response.ok) {
-        const status = response.status;
-        if (NON_RETRYABLE_STATUSES.has(status)) {
-          return { success: false, error: `HTTP ${status} ${response.statusText}` };
-        }
-        // Retryable status (429, 5xx)
-        lastError = `HTTP ${status} ${response.statusText}`;
-        if (attempt < retries) {
-          await sleep(retryDelay * attempt);
-          continue;
-        }
-        return { success: false, error: lastError };
+      const outcome = await attemptDownload(url, destPath);
+      if (outcome.kind === "success" || outcome.kind === "fail") {
+        return outcome.result;
       }
-
-      // Validate content type
-      const contentType = response.headers.get('content-type');
-      if (!isValidPdfContentType(contentType)) {
-        return {
-          success: false,
-          error: `Unexpected Content-Type: ${contentType ?? 'none'}`,
-        };
-      }
-
-      const buffer = await response.arrayBuffer();
-
-      // Ensure parent directory exists
-      await mkdir(dirname(destPath), { recursive: true });
-      await writeFile(destPath, Buffer.from(buffer));
-
-      return { success: true, size: buffer.byteLength };
+      lastError = outcome.error;
     } catch (err) {
       lastError = err instanceof Error ? err.message : String(err);
-      if (attempt < retries) {
-        await sleep(retryDelay * attempt);
-        continue;
-      }
+    }
+
+    if (attempt < retries) {
+      await sleep(retryDelay * attempt);
     }
   }
 
-  return { success: false, error: lastError ?? 'Download failed' };
+  return { success: false, error: lastError ?? "Download failed" };
 }

@@ -3,16 +3,16 @@
  * Coordinates downloads from multiple OA sources with priority-based selection.
  */
 
-import { mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
-import type { OALocation, FulltextMeta, FileInfo } from '../types.js';
-import { downloadPdf } from './downloader.js';
-import { downloadPmcXml } from './pmc-xml.js';
-import { loadMeta, saveMeta } from '../meta.js';
-import { getArticleDir } from '../paths.js';
+import { mkdir } from "node:fs/promises";
+import { join } from "node:path";
+import { loadMeta, saveMeta } from "../meta.js";
+import { getArticleDir } from "../paths.js";
+import type { FileInfo, FulltextMeta, OALocation } from "../types.js";
+import { downloadPdf } from "./downloader.js";
+import { downloadPmcXml } from "./pmc-xml.js";
 
 /** Source priority order (lower index = higher priority) */
-const SOURCE_PRIORITY: string[] = ['pmc', 'arxiv', 'unpaywall', 'core', 'publisher'];
+const SOURCE_PRIORITY: string[] = ["pmc", "arxiv", "unpaywall", "core", "publisher"];
 
 export interface FetchArticle {
   dirName: string;
@@ -30,7 +30,7 @@ export interface FetchOptions {
 
 export interface FetchResult {
   dirName: string;
-  status: 'downloaded' | 'failed' | 'skipped';
+  status: "downloaded" | "failed" | "skipped";
   filesDownloaded?: string[];
   error?: string;
 }
@@ -46,7 +46,65 @@ function sortByPriority(locations: OALocation[]): OALocation[] {
 
 /** Get only PDF-type locations */
 function getPdfLocations(locations: OALocation[]): OALocation[] {
-  return locations.filter((loc) => loc.urlType === 'pdf');
+  return locations.filter((loc) => loc.urlType === "pdf");
+}
+
+/** Filter locations by source if a filter is specified */
+function applySourceFilter(locations: OALocation[], sourceFilter?: string[]): OALocation[] {
+  if (sourceFilter && sourceFilter.length > 0) {
+    return locations.filter((loc) => sourceFilter.includes(loc.source));
+  }
+  return locations;
+}
+
+/** Build a FileInfo object from a download result */
+function buildFileInfo(filename: string, source: string, size?: number): FileInfo {
+  const info: FileInfo = {
+    filename,
+    source,
+    retrievedAt: new Date().toISOString(),
+  };
+  if (size !== undefined) info.size = size;
+  return info;
+}
+
+/**
+ * Try downloading a PDF from prioritized OA locations.
+ * Returns FileInfo on success, or undefined if all sources fail.
+ */
+async function tryDownloadPdf(
+  pdfLocations: OALocation[],
+  articleDir: string,
+  options?: FetchOptions
+): Promise<FileInfo | undefined> {
+  const pdfPath = join(articleDir, "fulltext.pdf");
+  for (const loc of pdfLocations) {
+    const result = await downloadPdf(loc.url, pdfPath, {
+      retries: options?.retries ?? 3,
+      retryDelay: options?.retryDelay ?? 1000,
+    });
+    if (result.success) {
+      return buildFileInfo("fulltext.pdf", loc.source, result.size);
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Try downloading PMC XML for a given PMCID.
+ * Returns FileInfo on success, or undefined on failure or if no PMCID.
+ */
+async function tryDownloadXml(
+  pmcid: string | undefined,
+  articleDir: string
+): Promise<FileInfo | undefined> {
+  if (!pmcid) return undefined;
+  const xmlPath = join(articleDir, "fulltext.xml");
+  const result = await downloadPmcXml(pmcid, xmlPath);
+  if (result.success) {
+    return buildFileInfo("fulltext.xml", "pmc", result.size);
+  }
+  return undefined;
 }
 
 /**
@@ -56,80 +114,45 @@ function getPdfLocations(locations: OALocation[]): OALocation[] {
 export async function fetchFulltext(
   article: FetchArticle,
   sessionDir: string,
-  options?: FetchOptions,
+  options?: FetchOptions
 ): Promise<FetchResult> {
   const articleDir = getArticleDir(sessionDir, article.dirName);
-  const metaPath = join(articleDir, 'meta.json');
+  const metaPath = join(articleDir, "meta.json");
 
   // Load meta to check existing files
   let meta: FulltextMeta;
   try {
     meta = await loadMeta(metaPath);
   } catch {
-    return { dirName: article.dirName, status: 'failed', error: 'meta.json not found' };
+    return { dirName: article.dirName, status: "failed", error: "meta.json not found" };
   }
 
   // Skip if already has PDF
   if (meta.files.pdf) {
-    return { dirName: article.dirName, status: 'skipped' };
+    return { dirName: article.dirName, status: "skipped" };
   }
 
   // Ensure directory exists
   await mkdir(articleDir, { recursive: true });
 
-  const filesDownloaded: string[] = [];
-  let pdfFileInfo: FileInfo | undefined;
-  let xmlFileInfo: FileInfo | undefined;
-
-  // Filter and sort locations by priority
-  let locations = article.oaLocations;
-  if (options?.sourceFilter && options.sourceFilter.length > 0) {
-    locations = locations.filter((loc) => options.sourceFilter?.includes(loc.source));
-  }
+  // Filter, sort, and attempt PDF download
+  const locations = applySourceFilter(article.oaLocations, options?.sourceFilter);
   const pdfLocations = sortByPriority(getPdfLocations(locations));
+  const pdfFileInfo = await tryDownloadPdf(pdfLocations, articleDir, options);
 
-  // Try downloading PDF from best source, falling back to next on failure
-  for (const loc of pdfLocations) {
-    const pdfPath = join(articleDir, 'fulltext.pdf');
-    const downloadResult = await downloadPdf(loc.url, pdfPath, {
-      retries: options?.retries ?? 3,
-      retryDelay: options?.retryDelay ?? 1000,
-    });
+  // Attempt PMC XML download
+  const xmlFileInfo = await tryDownloadXml(article.pmcid, articleDir);
 
-    if (downloadResult.success) {
-      filesDownloaded.push('fulltext.pdf');
-      const info: FileInfo = {
-        filename: 'fulltext.pdf',
-        source: loc.source,
-        retrievedAt: new Date().toISOString(),
-      };
-      if (downloadResult.size !== undefined) info.size = downloadResult.size;
-      pdfFileInfo = info;
-      break;
-    }
-  }
-
-  // Download PMC XML if pmcid available
-  if (article.pmcid) {
-    const xmlPath = join(articleDir, 'fulltext.xml');
-    const xmlResult = await downloadPmcXml(article.pmcid, xmlPath);
-    if (xmlResult.success) {
-      filesDownloaded.push('fulltext.xml');
-      const info: FileInfo = {
-        filename: 'fulltext.xml',
-        source: 'pmc',
-        retrievedAt: new Date().toISOString(),
-      };
-      if (xmlResult.size !== undefined) info.size = xmlResult.size;
-      xmlFileInfo = info;
-    }
-  }
+  // Collect downloaded filenames
+  const filesDownloaded: string[] = [];
+  if (pdfFileInfo) filesDownloaded.push(pdfFileInfo.filename);
+  if (xmlFileInfo) filesDownloaded.push(xmlFileInfo.filename);
 
   if (filesDownloaded.length === 0) {
     return {
       dirName: article.dirName,
-      status: 'failed',
-      error: 'All download sources failed',
+      status: "failed",
+      error: "All download sources failed",
     };
   }
 
@@ -146,7 +169,7 @@ export async function fetchFulltext(
 
   return {
     dirName: article.dirName,
-    status: 'downloaded',
+    status: "downloaded",
     filesDownloaded,
   };
 }
@@ -157,7 +180,7 @@ export async function fetchFulltext(
 export async function fetchAllFulltexts(
   articles: FetchArticle[],
   sessionDir: string,
-  options?: FetchOptions,
+  options?: FetchOptions
 ): Promise<FetchResult[]> {
   const concurrency = options?.concurrency ?? 3;
   const results: FetchResult[] = new Array(articles.length);
@@ -183,10 +206,7 @@ export async function fetchAllFulltexts(
     }
   }
 
-  const workers = Array.from(
-    { length: Math.min(concurrency, articles.length) },
-    () => worker(),
-  );
+  const workers = Array.from({ length: Math.min(concurrency, articles.length) }, () => worker());
   await Promise.all(workers);
 
   return results;

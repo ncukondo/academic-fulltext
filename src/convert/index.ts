@@ -4,11 +4,16 @@
  * Ties together the JATS parser and Markdown writer with file I/O.
  */
 
-import { readFile, writeFile, stat } from 'node:fs/promises';
-import { parseJatsMetadata, parseJatsBody, parseJatsReferences, parseJatsBackMatter } from './jats-parser.js';
-import { writeMarkdown } from './markdown-writer.js';
-import type { JatsDocument } from './types.js';
-import type { FulltextMeta } from '../types.js';
+import { readFile, stat, writeFile } from "node:fs/promises";
+import type { FulltextMeta } from "../types.js";
+import {
+  parseJatsBackMatter,
+  parseJatsBody,
+  parseJatsMetadata,
+  parseJatsReferences,
+} from "./jats-parser.js";
+import { writeMarkdown } from "./markdown-writer.js";
+import type { JatsDocument } from "./types.js";
 
 export interface ConvertResult {
   success: boolean;
@@ -27,10 +32,10 @@ export interface ConvertResult {
 export async function convertPmcXmlToMarkdown(
   xmlPath: string,
   mdPath: string,
-  metaPath?: string,
+  metaPath?: string
 ): Promise<ConvertResult> {
   try {
-    const xml = await readFile(xmlPath, 'utf-8');
+    const xml = await readFile(xmlPath, "utf-8");
 
     // Parse
     const metadata = parseJatsMetadata(xml);
@@ -47,25 +52,25 @@ export async function convertPmcXmlToMarkdown(
 
     // Write Markdown
     const md = writeMarkdown(doc);
-    await writeFile(mdPath, md, 'utf-8');
+    await writeFile(mdPath, md, "utf-8");
 
     // Update meta.json if path provided and file exists
     if (metaPath) {
       try {
         await stat(metaPath);
-        const metaRaw = await readFile(metaPath, 'utf-8');
+        const metaRaw = await readFile(metaPath, "utf-8");
         const meta = JSON.parse(metaRaw) as FulltextMeta;
         const mdStat = await stat(mdPath);
 
         meta.files.markdown = {
-          filename: 'fulltext.md',
-          source: 'conversion',
+          filename: "fulltext.md",
+          source: "conversion",
           retrievedAt: new Date().toISOString(),
           size: mdStat.size,
-          convertedFrom: 'fulltext.xml',
+          convertedFrom: "fulltext.xml",
         };
 
-        await writeFile(metaPath, JSON.stringify(meta, null, 2) + '\n', 'utf-8');
+        await writeFile(metaPath, `${JSON.stringify(meta, null, 2)}\n`, "utf-8");
       } catch {
         // meta.json doesn't exist or can't be read, skip update
       }

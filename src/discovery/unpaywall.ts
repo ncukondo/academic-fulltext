@@ -6,9 +6,9 @@
  * Rate limit: 100,000 requests/day (no per-second limit documented)
  */
 
-import type { OALocation } from '../types.js';
+import type { OALocation } from "../types.js";
 
-const UNPAYWALL_BASE_URL = 'https://api.unpaywall.org/v2';
+const UNPAYWALL_BASE_URL = "https://api.unpaywall.org/v2";
 
 /** Unpaywall API response location shape */
 interface UnpaywallLocation {
@@ -20,16 +20,16 @@ interface UnpaywallLocation {
 }
 
 /** Map Unpaywall version strings to our OALocation version format */
-function mapVersion(version: string | null | undefined): OALocation['version'] {
+function mapVersion(version: string | null | undefined): OALocation["version"] {
   switch (version) {
-    case 'publishedVersion':
-      return 'published';
-    case 'acceptedVersion':
-      return 'accepted';
-    case 'submittedVersion':
-      return 'submitted';
+    case "publishedVersion":
+      return "published";
+    case "acceptedVersion":
+      return "accepted";
+    case "submittedVersion":
+      return "submitted";
     default:
-      return 'published';
+      return "published";
   }
 }
 
@@ -40,9 +40,9 @@ function toOALocation(loc: UnpaywallLocation): OALocation | null {
   if (!url) return null;
 
   const result: OALocation = {
-    source: 'unpaywall',
+    source: "unpaywall",
     url,
-    urlType: hasPdf ? 'pdf' : 'html',
+    urlType: hasPdf ? "pdf" : "html",
     version: mapVersion(loc.version),
   };
   if (loc.license) {
@@ -59,14 +59,11 @@ function toOALocation(loc: UnpaywallLocation): OALocation | null {
  * @returns Array of OALocations if OA, null if closed/not found
  * @throws On rate limit (429) or network errors
  */
-export async function checkUnpaywall(
-  doi: string,
-  email: string
-): Promise<OALocation[] | null> {
+export async function checkUnpaywall(doi: string, email: string): Promise<OALocation[] | null> {
   if (!doi) return null;
 
   if (!email) {
-    throw new Error('Unpaywall email is required for API access');
+    throw new Error("Unpaywall email is required for API access");
   }
 
   const url = `${UNPAYWALL_BASE_URL}/${doi}?email=${encodeURIComponent(email)}`;
@@ -76,7 +73,7 @@ export async function checkUnpaywall(
   if (!response.ok) {
     if (response.status === 404) return null;
     if (response.status === 429) {
-      throw new Error('Unpaywall rate limit exceeded');
+      throw new Error("Unpaywall rate limit exceeded");
     }
     throw new Error(`Unpaywall API error: HTTP ${response.status} ${response.statusText}`);
   }

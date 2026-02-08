@@ -7,9 +7,9 @@
  * PMID→PMCID: https://eutils.ncbi.nlm.nih.gov/entrez/eutils/elink.fcgi?dbfrom=pubmed&db=pmc&id={pmid}&retmode=json
  */
 
-import type { OALocation } from '../types.js';
+import type { OALocation } from "../types.js";
 
-const EUTILS_BASE = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
+const EUTILS_BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils";
 
 export interface PmcIdentifiers {
   pmid?: string;
@@ -22,12 +22,12 @@ export interface PmcOptions {
 
 /** Strip "PMC" prefix from PMCID, returning just the numeric part */
 function stripPmcPrefix(pmcid: string): string {
-  return pmcid.replace(/^PMC/i, '');
+  return pmcid.replace(/^PMC/i, "");
 }
 
 /** Ensure PMCID has the "PMC" prefix */
 function ensurePmcPrefix(pmcid: string): string {
-  return pmcid.startsWith('PMC') ? pmcid : `PMC${pmcid}`;
+  return pmcid.startsWith("PMC") ? pmcid : `PMC${pmcid}`;
 }
 
 /**
@@ -39,16 +39,16 @@ export function getPmcUrls(pmcid: string): OALocation[] {
 
   return [
     {
-      source: 'pmc',
+      source: "pmc",
       url: `https://www.ncbi.nlm.nih.gov/pmc/articles/${fullPmcid}/pdf/`,
-      urlType: 'pdf',
-      version: 'published',
+      urlType: "pdf",
+      version: "published",
     },
     {
-      source: 'pmc',
+      source: "pmc",
       url: `${EUTILS_BASE}/efetch.fcgi?db=pmc&id=${numericId}&rettype=xml`,
-      urlType: 'xml',
-      version: 'published',
+      urlType: "xml",
+      version: "published",
     },
   ];
 }
@@ -83,7 +83,7 @@ async function lookupPmcid(pmid: string, options?: PmcOptions): Promise<string |
   const firstLinkset = linksets[0 as number];
   if (!firstLinkset?.linksetdbs) return null;
 
-  const pmcLink = firstLinkset.linksetdbs.find((db) => db.dbto === 'pmc');
+  const pmcLink = firstLinkset.linksetdbs.find((db) => db.dbto === "pmc");
   if (!pmcLink?.links || pmcLink.links.length === 0) return null;
 
   const pmcNumericId = pmcLink.links[0 as number];

@@ -2,8 +2,8 @@
  * Meta.json management for fulltext article directories.
  */
 
-import { readFile, writeFile } from 'node:fs/promises';
-import type { FulltextMeta, FileInfo } from './types.js';
+import { readFile, writeFile } from "node:fs/promises";
+import type { FileInfo, FulltextMeta } from "./types.js";
 
 export interface CreateMetaOptions {
   citationKey: string;
@@ -25,7 +25,7 @@ export function createMeta(options: CreateMetaOptions): FulltextMeta {
     citationKey: options.citationKey,
     uuid: options.uuid,
     title: options.title,
-    oaStatus: 'unchecked',
+    oaStatus: "unchecked",
     files: {},
   };
 
@@ -41,28 +41,26 @@ export function createMeta(options: CreateMetaOptions): FulltextMeta {
 
 /** Load and parse a meta.json file. */
 export async function loadMeta(path: string): Promise<FulltextMeta> {
-  const raw = await readFile(path, 'utf-8');
+  const raw = await readFile(path, "utf-8");
   return JSON.parse(raw) as FulltextMeta;
 }
 
 /** Save a FulltextMeta to a meta.json file with 2-space indentation. */
 export async function saveMeta(path: string, meta: FulltextMeta): Promise<void> {
   const json = JSON.stringify(meta, null, 2);
-  await writeFile(path, json + '\n', 'utf-8');
+  await writeFile(path, `${json}\n`, "utf-8");
 }
 
 /** Update the files section of a FulltextMeta, preserving existing files. */
 export function updateMetaFiles(
   meta: FulltextMeta,
-  files: { pdf?: FileInfo; xml?: FileInfo; markdown?: FileInfo },
+  files: { pdf?: FileInfo; xml?: FileInfo; markdown?: FileInfo }
 ): FulltextMeta {
   return {
     ...meta,
     files: {
       ...meta.files,
-      ...Object.fromEntries(
-        Object.entries(files).filter(([, v]) => v !== undefined),
-      ),
+      ...Object.fromEntries(Object.entries(files).filter(([, v]) => v !== undefined)),
     },
   };
 }

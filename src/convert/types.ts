@@ -29,27 +29,27 @@ export interface JatsMetadata {
 
 /** Inline content element (text with optional formatting). */
 export type InlineContent =
-  | { type: 'text'; text: string }
-  | { type: 'bold'; children: InlineContent[] }
-  | { type: 'italic'; children: InlineContent[] }
-  | { type: 'superscript'; text: string }
-  | { type: 'subscript'; text: string }
-  | { type: 'citation'; refId: string; text: string }
-  | { type: 'link'; url: string; children: InlineContent[] }
-  | { type: 'code'; text: string }
-  | { type: 'inline-formula'; tex?: string; text: string };
+  | { type: "text"; text: string }
+  | { type: "bold"; children: InlineContent[] }
+  | { type: "italic"; children: InlineContent[] }
+  | { type: "superscript"; text: string }
+  | { type: "subscript"; text: string }
+  | { type: "citation"; refId: string; text: string }
+  | { type: "link"; url: string; children: InlineContent[] }
+  | { type: "code"; text: string }
+  | { type: "inline-formula"; tex?: string; text: string };
 
 /** A block-level element within a section. */
 export type BlockElement =
-  | { type: 'paragraph'; content: InlineContent[] }
-  | { type: 'blockquote'; content: InlineContent[] }
-  | { type: 'list'; ordered: boolean; items: InlineContent[][] }
-  | { type: 'table'; caption?: string; headers: string[]; rows: string[][] }
-  | { type: 'figure'; id?: string; label?: string; caption?: string }
-  | { type: 'boxed-text'; title?: string; content: BlockElement[] }
-  | { type: 'def-list'; title?: string; items: { term: string; definition: string }[] }
-  | { type: 'formula'; id?: string; label?: string; tex?: string; text?: string }
-  | { type: 'preformat'; text: string };
+  | { type: "paragraph"; content: InlineContent[] }
+  | { type: "blockquote"; content: InlineContent[] }
+  | { type: "list"; ordered: boolean; items: InlineContent[][] }
+  | { type: "table"; caption?: string; headers: string[]; rows: string[][] }
+  | { type: "figure"; id?: string; label?: string; caption?: string }
+  | { type: "boxed-text"; title?: string; content: BlockElement[] }
+  | { type: "def-list"; title?: string; items: { term: string; definition: string }[] }
+  | { type: "formula"; id?: string; label?: string; tex?: string; text?: string }
+  | { type: "preformat"; text: string };
 
 /** A document section (may contain nested subsections). */
 export interface JatsSection {

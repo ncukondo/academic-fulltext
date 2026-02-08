@@ -3,11 +3,11 @@
  * Combines results from multiple OA discovery sources.
  */
 
-import type { OALocation, OAStatus } from '../types.js';
-import { checkUnpaywall } from './unpaywall.js';
-import { checkPmc } from './pmc.js';
-import { checkArxiv } from './arxiv.js';
-import { checkCore } from './core.js';
+import type { OALocation, OAStatus } from "../types.js";
+import { checkArxiv } from "./arxiv.js";
+import { checkCore } from "./core.js";
+import { checkPmc } from "./pmc.js";
+import { checkUnpaywall } from "./unpaywall.js";
 
 export interface DiscoveryArticle {
   doi?: string;
@@ -29,7 +29,67 @@ export interface DiscoveryResult {
 }
 
 /** Default source order when preferSources is empty or not specified */
-const DEFAULT_SOURCE_ORDER = ['pmc', 'arxiv', 'unpaywall', 'core'];
+const DEFAULT_SOURCE_ORDER = ["pmc", "arxiv", "unpaywall", "core"];
+
+/**
+ * A source checker returns:
+ * - undefined if the source is not applicable (precondition not met, skip entirely)
+ * - OALocation[] | null if the source was checked (null means checked but nothing found)
+ */
+type SourceCheckerResult =
+  | Promise<OALocation[] | null | undefined>
+  | OALocation[]
+  | null
+  | undefined;
+type SourceChecker = (article: DiscoveryArticle, config: DiscoveryConfig) => SourceCheckerResult;
+
+async function checkPmcSource(article: DiscoveryArticle): Promise<OALocation[] | null | undefined> {
+  if (!article.pmid && !article.pmcid) return undefined;
+  const ids: { pmid?: string; pmcid?: string } = {};
+  if (article.pmid) ids.pmid = article.pmid;
+  if (article.pmcid) ids.pmcid = article.pmcid;
+  return await checkPmc(ids);
+}
+
+function checkArxivSource(article: DiscoveryArticle): OALocation[] | null | undefined {
+  if (!article.arxivId) return undefined;
+  return checkArxiv(article.arxivId);
+}
+
+async function checkUnpaywallSource(
+  article: DiscoveryArticle,
+  config: DiscoveryConfig
+): Promise<OALocation[] | null | undefined> {
+  if (!config.unpaywallEmail || !article.doi) return undefined;
+  return await checkUnpaywall(article.doi, config.unpaywallEmail);
+}
+
+async function checkCoreSource(
+  article: DiscoveryArticle,
+  config: DiscoveryConfig
+): Promise<OALocation[] | null | undefined> {
+  if (!config.coreApiKey || !article.doi) return undefined;
+  return await checkCore(article.doi, config.coreApiKey);
+}
+
+/** Map of source name to its checker function. */
+const sourceCheckers: Record<string, SourceChecker> = {
+  pmc: checkPmcSource,
+  arxiv: checkArxivSource,
+  unpaywall: checkUnpaywallSource,
+  core: checkCoreSource,
+};
+
+/** Determine OA status from collected locations and errors. */
+function determineOAStatus(
+  locations: OALocation[],
+  errors: Array<{ source: string; error: string }>,
+  sourcesChecked: number
+): OAStatus {
+  if (locations.length > 0) return "open";
+  if (errors.length > 0 && errors.length >= sourcesChecked) return "unknown";
+  return "closed";
+}
 
 /**
  * Discover OA availability for an article across all configured sources.
@@ -45,74 +105,44 @@ export async function discoverOA(
   const errors: Array<{ source: string; error: string }> = [];
   let sourcesChecked = 0;
 
-  const sourceOrder =
-    config.preferSources.length > 0 ? config.preferSources : DEFAULT_SOURCE_ORDER;
+  const sourceOrder = config.preferSources.length > 0 ? config.preferSources : DEFAULT_SOURCE_ORDER;
 
   for (const source of sourceOrder) {
-    switch (source) {
-      case 'pmc':
-        if (article.pmid || article.pmcid) {
-          sourcesChecked++;
-          try {
-            const ids: { pmid?: string; pmcid?: string } = {};
-            if (article.pmid) ids.pmid = article.pmid;
-            if (article.pmcid) ids.pmcid = article.pmcid;
-            const pmcResult = await checkPmc(ids);
-            if (pmcResult) locations.push(...pmcResult);
-          } catch (err) {
-            errors.push({ source: 'pmc', error: String(err) });
-          }
-        }
-        break;
+    const checker = sourceCheckers[source];
+    if (!checker) continue;
 
-      case 'arxiv':
-        if (article.arxivId) {
-          sourcesChecked++;
-          try {
-            const arxivResult = checkArxiv(article.arxivId);
-            if (arxivResult) locations.push(...arxivResult);
-          } catch (err) {
-            errors.push({ source: 'arxiv', error: String(err) });
-          }
-        }
-        break;
+    const result = await runSourceChecker(checker, article, config);
+    if (result.skipped) continue;
 
-      case 'unpaywall':
-        if (config.unpaywallEmail && article.doi) {
-          sourcesChecked++;
-          try {
-            const unpaywallResult = await checkUnpaywall(article.doi, config.unpaywallEmail);
-            if (unpaywallResult) locations.push(...unpaywallResult);
-          } catch (err) {
-            errors.push({ source: 'unpaywall', error: String(err) });
-          }
-        }
-        break;
-
-      case 'core':
-        if (config.coreApiKey && article.doi) {
-          sourcesChecked++;
-          try {
-            const coreResult = await checkCore(article.doi, config.coreApiKey);
-            if (coreResult) locations.push(...coreResult);
-          } catch (err) {
-            errors.push({ source: 'core', error: String(err) });
-          }
-        }
-        break;
+    sourcesChecked++;
+    if (result.error) {
+      errors.push({ source, error: result.error });
+    } else if (result.locations) {
+      locations.push(...result.locations);
     }
   }
 
-  // Determine OA status
-  let oaStatus: OAStatus;
-  if (locations.length > 0) {
-    oaStatus = 'open';
-  } else if (errors.length > 0 && errors.length >= sourcesChecked) {
-    // All checked sources errored — we can't determine status
-    oaStatus = 'unknown';
-  } else {
-    oaStatus = 'closed';
-  }
-
+  const oaStatus = determineOAStatus(locations, errors, sourcesChecked);
   return { oaStatus, locations, errors };
+}
+
+interface SourceCheckResult {
+  skipped: boolean;
+  locations?: OALocation[];
+  error?: string;
+}
+
+/** Run a single source checker with error handling. */
+async function runSourceChecker(
+  checker: SourceChecker,
+  article: DiscoveryArticle,
+  config: DiscoveryConfig
+): Promise<SourceCheckResult> {
+  try {
+    const result = await checker(article, config);
+    if (result === undefined) return { skipped: true };
+    return { skipped: false, locations: result ?? undefined };
+  } catch (err) {
+    return { skipped: false, error: String(err) };
+  }
 }

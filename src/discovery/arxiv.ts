@@ -6,11 +6,11 @@
  * No API call needed — arXiv is always open access.
  */
 
-import type { OALocation } from '../types.js';
+import type { OALocation } from "../types.js";
 
 /** Strip common prefixes from arXiv IDs */
 function normalizeArxivId(id: string): string {
-  return id.replace(/^arXiv:/i, '');
+  return id.replace(/^arXiv:/i, "");
 }
 
 /**
@@ -28,10 +28,10 @@ export function checkArxiv(arxivId: string): OALocation[] | null {
 
   return [
     {
-      source: 'arxiv',
+      source: "arxiv",
       url: `https://arxiv.org/pdf/${id}.pdf`,
-      urlType: 'pdf',
-      version: 'submitted',
+      urlType: "pdf",
+      version: "submitted",
     },
   ];
 }

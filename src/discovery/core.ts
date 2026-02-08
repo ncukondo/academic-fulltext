@@ -7,9 +7,9 @@
  * Rate limit: 10 req/sec
  */
 
-import type { OALocation } from '../types.js';
+import type { OALocation } from "../types.js";
 
-const CORE_API_BASE = 'https://api.core.ac.uk/v3';
+const CORE_API_BASE = "https://api.core.ac.uk/v3";
 
 /** CORE API search result shape */
 interface CoreResult {
@@ -42,7 +42,7 @@ export async function checkCore(
 
   if (!response.ok) {
     if (response.status === 429) {
-      throw new Error('CORE API rate limit exceeded');
+      throw new Error("CORE API rate limit exceeded");
     }
     throw new Error(`CORE API error: HTTP ${response.status} ${response.statusText}`);
   }
@@ -63,10 +63,10 @@ export async function checkCore(
   if (firstResult.downloadUrl) {
     return [
       {
-        source: 'core',
+        source: "core",
         url: firstResult.downloadUrl,
-        urlType: 'pdf',
-        version: 'accepted',
+        urlType: "pdf",
+        version: "accepted",
       },
     ];
   }
@@ -77,10 +77,10 @@ export async function checkCore(
     if (repoUrl) {
       return [
         {
-          source: 'core',
+          source: "core",
           url: repoUrl,
-          urlType: 'repository',
-          version: 'accepted',
+          urlType: "repository",
+          version: "accepted",
         },
       ];
     }

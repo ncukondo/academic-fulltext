@@ -24,13 +24,13 @@ export interface FileInfo {
  */
 export interface OALocation {
   /** Discovery source */
-  source: 'unpaywall' | 'pmc' | 'arxiv' | 'core' | 'publisher';
+  source: "unpaywall" | "pmc" | "arxiv" | "core" | "publisher";
   /** URL to the fulltext */
   url: string;
   /** Type of content at the URL */
-  urlType: 'pdf' | 'xml' | 'html' | 'repository';
+  urlType: "pdf" | "xml" | "html" | "repository";
   /** Version of the article */
-  version: 'published' | 'accepted' | 'submitted';
+  version: "published" | "accepted" | "submitted";
   /** License identifier (e.g., "cc-by") */
   license?: string;
 }
@@ -38,7 +38,7 @@ export interface OALocation {
 /**
  * OA status of an article.
  */
-export type OAStatus = 'open' | 'closed' | 'unknown' | 'unchecked';
+export type OAStatus = "open" | "closed" | "unknown" | "unchecked";
 
 /**
  * Metadata for a single article's fulltext directory (meta.json).
