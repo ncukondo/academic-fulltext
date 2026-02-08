@@ -563,9 +563,11 @@ describe("parseJatsBody", () => {
     `;
     const sections = parseJatsBody(xml);
     const content = sections[0]?.content;
+    if (!content) throw new Error("expected content");
     expect(content).toHaveLength(2);
 
     const bulletList = content[0];
+    if (!bulletList) throw new Error("expected bulletList");
     expect(bulletList.type).toBe("list");
     if (bulletList.type === "list") {
       expect(bulletList.ordered).toBe(false);
@@ -573,6 +575,7 @@ describe("parseJatsBody", () => {
     }
 
     const orderedList = content[1];
+    if (!orderedList) throw new Error("expected orderedList");
     expect(orderedList.type).toBe("list");
     if (orderedList.type === "list") {
       expect(orderedList.ordered).toBe(true);
@@ -593,6 +596,7 @@ describe("parseJatsBody", () => {
     `;
     const sections = parseJatsBody(xml);
     const para = sections[0]?.content[0];
+    if (!para) throw new Error("expected para");
     expect(para.type).toBe("paragraph");
     if (para.type === "paragraph") {
       const types = para.content.map((c) => c.type);
@@ -710,11 +714,12 @@ describe("parseJatsTable", () => {
     `;
     const sections = parseJatsBody(xml);
     const content = sections[0]?.content;
+    if (!content) throw new Error("expected content");
     expect(content).toHaveLength(2);
     expect(content[0]?.type).toBe("paragraph");
     expect(content[1]?.type).toBe("table");
     if (content[1]?.type === "table") {
-      expect(content[1]?.headers).toEqual(["Item", "Count"]);
+      expect(content[1].headers).toEqual(["Item", "Count"]);
     }
   });
 });
@@ -779,11 +784,12 @@ describe("parseJatsBody - figures", () => {
     `;
     const sections = parseJatsBody(xml);
     const content = sections[0]?.content;
+    if (!content) throw new Error("expected content");
     expect(content).toHaveLength(2);
     expect(content[1]?.type).toBe("figure");
     if (content[1]?.type === "figure") {
-      expect(content[1]?.label).toBe("Figure 1");
-      expect(content[1]?.caption).toBe("Distribution of scores");
+      expect(content[1].label).toBe("Figure 1");
+      expect(content[1].caption).toBe("Distribution of scores");
     }
   });
 
@@ -802,7 +808,9 @@ describe("parseJatsBody - figures", () => {
     `;
     const sections = parseJatsBody(xml);
     const content = sections[0]?.content;
+    if (!content) throw new Error("expected content");
     const fig = content[0];
+    if (!fig) throw new Error("expected fig");
     expect(fig.type).toBe("figure");
     if (fig.type === "figure") {
       expect(fig.label).toBe("Figure 2");
@@ -825,6 +833,7 @@ describe("parseJatsBody - citations", () => {
     `;
     const sections = parseJatsBody(xml);
     const para = sections[0]?.content[0];
+    if (!para) throw new Error("expected para");
     if (para.type === "paragraph") {
       const citation = para.content.find((c) => c.type === "citation");
       expect(citation).toBeDefined();
@@ -851,6 +860,7 @@ describe("parseJatsBody - preserveOrder inline interleaving", () => {
     `;
     const sections = parseJatsBody(xml);
     const para = sections[0]?.content[0];
+    if (!para) throw new Error("expected para");
     expect(para.type).toBe("paragraph");
     if (para.type === "paragraph") {
       const types = para.content.map((c) => c.type);
@@ -881,6 +891,7 @@ describe("parseJatsBody - preserveOrder inline interleaving", () => {
     `;
     const sections = parseJatsBody(xml);
     const para = sections[0]?.content[0];
+    if (!para) throw new Error("expected para");
     expect(para.type).toBe("paragraph");
     if (para.type === "paragraph") {
       expect(para.content).toEqual([
@@ -914,6 +925,7 @@ describe("parseJatsBody - preserveOrder inline interleaving", () => {
     `;
     const sections = parseJatsBody(xml);
     const content = sections[0]?.content;
+    if (!content) throw new Error("expected content");
     expect(content.map((b) => b.type)).toEqual([
       "paragraph",
       "table",
@@ -946,12 +958,13 @@ describe("parseJatsBody - nested block elements in <p>", () => {
     `;
     const sections = parseJatsBody(xml);
     const content = sections[0]?.content;
+    if (!content) throw new Error("expected content");
     // First <p> is a normal paragraph, second <p> contains only table-wrap
     expect(content).toHaveLength(2);
     expect(content[0]?.type).toBe("paragraph");
     expect(content[1]?.type).toBe("table");
     if (content[1]?.type === "table") {
-      expect(content[1]?.headers).toEqual(["Age", "Count"]);
+      expect(content[1].headers).toEqual(["Age", "Count"]);
     }
   });
 
@@ -971,11 +984,12 @@ describe("parseJatsBody - nested block elements in <p>", () => {
     `;
     const sections = parseJatsBody(xml);
     const content = sections[0]?.content;
+    if (!content) throw new Error("expected content");
     expect(content).toHaveLength(1);
     expect(content[0]?.type).toBe("figure");
     if (content[0]?.type === "figure") {
-      expect(content[0]?.label).toBe("Figure 1");
-      expect(content[0]?.caption).toBe("Score distribution");
+      expect(content[0].label).toBe("Figure 1");
+      expect(content[0].caption).toBe("Score distribution");
     }
   });
 
@@ -994,6 +1008,7 @@ describe("parseJatsBody - nested block elements in <p>", () => {
     `;
     const sections = parseJatsBody(xml);
     const content = sections[0]?.content;
+    if (!content) throw new Error("expected content");
     expect(content).toHaveLength(3);
     expect(content[0]?.type).toBe("paragraph");
     expect(content[1]?.type).toBe("table");
@@ -1017,10 +1032,11 @@ describe("parseJatsBody - blockquotes", () => {
     `;
     const sections = parseJatsBody(xml);
     const content = sections[0]?.content;
+    if (!content) throw new Error("expected content");
     expect(content).toHaveLength(1);
     expect(content[0]?.type).toBe("blockquote");
     if (content[0]?.type === "blockquote") {
-      const text = content[0]?.content.find((c) => c.type === "text");
+      const text = content[0].content.find((c) => c.type === "text");
       expect(text).toBeDefined();
     }
   });
@@ -1041,11 +1057,12 @@ describe("parseJatsBody - blockquotes", () => {
     `;
     const sections = parseJatsBody(xml);
     const content = sections[0]?.content;
+    if (!content) throw new Error("expected content");
     expect(content).toHaveLength(1);
     expect(content[0]?.type).toBe("blockquote");
     if (content[0]?.type === "blockquote") {
       // Should contain inline content from both paragraphs
-      const texts = content[0]?.content.filter((c) => c.type === "text");
+      const texts = content[0].content.filter((c) => c.type === "text");
       expect(texts.length).toBeGreaterThanOrEqual(2);
     }
   });
@@ -1063,6 +1080,7 @@ describe("parseJatsBody - blockquotes", () => {
     `;
     const sections = parseJatsBody(xml);
     const content = sections[0]?.content;
+    if (!content) throw new Error("expected content");
     // Should split: paragraph "The participant said: " + blockquote "I felt relieved."
     expect(content.length).toBe(2);
     expect(content[0]?.type).toBe("paragraph");
@@ -1086,6 +1104,7 @@ describe("parseJatsBody - blockquotes", () => {
     `;
     const sections = parseJatsBody(xml);
     const content = sections[0]?.content;
+    if (!content) throw new Error("expected content");
     expect(content.map((b) => b.type)).toEqual(["paragraph", "blockquote", "paragraph"]);
   });
 });
@@ -1110,6 +1129,7 @@ describe("parseJatsBody - E2E block element integration", () => {
     `;
     const sections = parseJatsBody(xml);
     const content = sections[0]?.content;
+    if (!content) throw new Error("expected content");
     // Should produce: paragraph (text before quote) + blockquote + paragraph (after)
     expect(content.length).toBe(3);
     expect(content[0]?.type).toBe("paragraph");
@@ -1118,7 +1138,7 @@ describe("parseJatsBody - E2E block element integration", () => {
 
     // Blockquote should preserve inline formatting
     if (content[1]?.type === "blockquote") {
-      const hasItalic = content[1]?.content.some((c) => c.type === "italic");
+      const hasItalic = content[1].content.some((c) => c.type === "italic");
       expect(hasItalic).toBe(true);
     }
   });
@@ -1148,13 +1168,14 @@ describe("parseJatsBody - E2E block element integration", () => {
     `;
     const sections = parseJatsBody(xml);
     const content = sections[0]?.content;
+    if (!content) throw new Error("expected content");
     expect(content.length).toBe(2);
     expect(content[0]?.type).toBe("paragraph");
     expect(content[1]?.type).toBe("table");
     if (content[1]?.type === "table") {
-      expect(content[1]?.headers).toEqual(["Group", "N", "Mean Age"]);
-      expect(content[1]?.rows).toHaveLength(2);
-      expect(content[1]?.caption).toContain("Table 1");
+      expect(content[1].headers).toEqual(["Group", "N", "Mean Age"]);
+      expect(content[1].rows).toHaveLength(2);
+      expect(content[1].caption).toContain("Table 1");
     }
   });
 
@@ -1181,6 +1202,7 @@ describe("parseJatsBody - E2E block element integration", () => {
     `;
     const sections = parseJatsBody(xml);
     const content = sections[0]?.content;
+    if (!content) throw new Error("expected content");
     expect(content.map((b) => b.type)).toEqual([
       "paragraph",
       "blockquote",
@@ -1924,6 +1946,7 @@ describe("parseJatsBody - underline and sc", () => {
     `;
     const sections = parseJatsBody(xml);
     const para = sections[0]?.content[0];
+    if (!para) throw new Error("expected para");
     expect(para.type).toBe("paragraph");
     if (para.type === "paragraph") {
       const texts = para.content
@@ -1949,6 +1972,7 @@ describe("parseJatsBody - underline and sc", () => {
     `;
     const sections = parseJatsBody(xml);
     const para = sections[0]?.content[0];
+    if (!para) throw new Error("expected para");
     expect(para.type).toBe("paragraph");
     if (para.type === "paragraph") {
       const texts = para.content
@@ -1975,6 +1999,7 @@ describe("parseJatsBody - inline-formula", () => {
     `;
     const sections = parseJatsBody(xml);
     const para = sections[0]?.content[0];
+    if (!para) throw new Error("expected para");
     expect(para.type).toBe("paragraph");
     if (para.type === "paragraph") {
       const formula = para.content.find((c) => c.type === "inline-formula");
@@ -1999,6 +2024,7 @@ describe("parseJatsBody - inline-formula", () => {
     `;
     const sections = parseJatsBody(xml);
     const para = sections[0]?.content[0];
+    if (!para) throw new Error("expected para");
     if (para.type === "paragraph") {
       const formula = para.content.find((c) => c.type === "inline-formula");
       expect(formula).toBeDefined();
@@ -2021,6 +2047,7 @@ describe("parseJatsBody - inline-formula", () => {
     `;
     const sections = parseJatsBody(xml);
     const para = sections[0]?.content[0];
+    if (!para) throw new Error("expected para");
     if (para.type === "paragraph") {
       const formula = para.content.find((c) => c.type === "inline-formula");
       expect(formula).toBeDefined();
@@ -2046,6 +2073,7 @@ describe("parseJatsBody - monospace", () => {
     `;
     const sections = parseJatsBody(xml);
     const para = sections[0]?.content[0];
+    if (!para) throw new Error("expected para");
     expect(para.type).toBe("paragraph");
     if (para.type === "paragraph") {
       const code = para.content.find((c) => c.type === "code");
@@ -2069,6 +2097,7 @@ describe("parseJatsBody - monospace", () => {
     `;
     const sections = parseJatsBody(xml);
     const para = sections[0]?.content[0];
+    if (!para) throw new Error("expected para");
     if (para.type === "paragraph") {
       const code = para.content.find((c) => c.type === "code");
       expect(code).toBeDefined();
@@ -2094,6 +2123,7 @@ describe("parseJatsBody - ext-link and uri", () => {
     `;
     const sections = parseJatsBody(xml);
     const para = sections[0]?.content[0];
+    if (!para) throw new Error("expected para");
     expect(para.type).toBe("paragraph");
     if (para.type === "paragraph") {
       const link = para.content.find((c) => c.type === "link");
@@ -2119,6 +2149,7 @@ describe("parseJatsBody - ext-link and uri", () => {
     `;
     const sections = parseJatsBody(xml);
     const para = sections[0]?.content[0];
+    if (!para) throw new Error("expected para");
     if (para.type === "paragraph") {
       const link = para.content.find((c) => c.type === "link");
       expect(link).toBeDefined();
@@ -2142,6 +2173,7 @@ describe("parseJatsBody - ext-link and uri", () => {
     `;
     const sections = parseJatsBody(xml);
     const para = sections[0]?.content[0];
+    if (!para) throw new Error("expected para");
     if (para.type === "paragraph") {
       const link = para.content.find((c) => c.type === "link");
       expect(link).toBeDefined();
@@ -2164,6 +2196,7 @@ describe("parseJatsBody - ext-link and uri", () => {
     `;
     const sections = parseJatsBody(xml);
     const para = sections[0]?.content[0];
+    if (!para) throw new Error("expected para");
     if (para.type === "paragraph") {
       const link = para.content.find((c) => c.type === "link");
       expect(link).toBeDefined();
@@ -2204,6 +2237,7 @@ describe("HTML numeric character reference decoding", () => {
     `;
     const sections = parseJatsBody(xml);
     const para = sections[0]?.content[0];
+    if (!para) throw new Error("expected para");
     expect(para.type).toBe("paragraph");
     if (para.type === "paragraph") {
       const text = para.content.map((c) => (c.type === "text" ? c.text : "")).join("");
@@ -2244,6 +2278,7 @@ describe("HTML numeric character reference decoding", () => {
     `;
     const sections = parseJatsBody(xml);
     const para = sections[0]?.content[0];
+    if (!para) throw new Error("expected para");
     expect(para.type).toBe("paragraph");
     if (para.type === "paragraph") {
       const text = para.content.map((c) => (c.type === "text" ? c.text : "")).join("");
@@ -2290,6 +2325,7 @@ describe("parseJatsBody - boxed-text", () => {
     `;
     const sections = parseJatsBody(xml);
     const content = sections[0]?.content;
+    if (!content) throw new Error("expected content");
     expect(content).toHaveLength(1);
     expect(content[0]?.type).toBe("boxed-text");
     if (content[0]?.type === "boxed-text") {
@@ -2315,6 +2351,7 @@ describe("parseJatsBody - boxed-text", () => {
     `;
     const sections = parseJatsBody(xml);
     const content = sections[0]?.content;
+    if (!content) throw new Error("expected content");
     expect(content).toHaveLength(1);
     expect(content[0]?.type).toBe("boxed-text");
     if (content[0]?.type === "boxed-text") {
@@ -2348,6 +2385,7 @@ describe("parseJatsBody - def-list", () => {
     `;
     const sections = parseJatsBody(xml);
     const content = sections[0]?.content;
+    if (!content) throw new Error("expected content");
     expect(content).toHaveLength(1);
     expect(content[0]?.type).toBe("def-list");
     if (content[0]?.type === "def-list") {
@@ -2379,6 +2417,7 @@ describe("parseJatsBody - def-list", () => {
     `;
     const sections = parseJatsBody(xml);
     const content = sections[0]?.content;
+    if (!content) throw new Error("expected content");
     expect(content).toHaveLength(1);
     expect(content[0]?.type).toBe("def-list");
     if (content[0]?.type === "def-list") {
@@ -2408,6 +2447,7 @@ describe("parseJatsBody - disp-formula", () => {
     `;
     const sections = parseJatsBody(xml);
     const content = sections[0]?.content;
+    if (!content) throw new Error("expected content");
     expect(content).toHaveLength(1);
     expect(content[0]?.type).toBe("formula");
     if (content[0]?.type === "formula") {
@@ -2432,6 +2472,7 @@ describe("parseJatsBody - disp-formula", () => {
     `;
     const sections = parseJatsBody(xml);
     const content = sections[0]?.content;
+    if (!content) throw new Error("expected content");
     expect(content).toHaveLength(1);
     expect(content[0]?.type).toBe("formula");
     if (content[0]?.type === "formula") {
@@ -2455,6 +2496,7 @@ describe("parseJatsBody - disp-formula", () => {
     `;
     const sections = parseJatsBody(xml);
     const content = sections[0]?.content;
+    if (!content) throw new Error("expected content");
     expect(content).toHaveLength(1);
     expect(content[0]?.type).toBe("formula");
     if (content[0]?.type === "formula") {
@@ -2479,6 +2521,7 @@ describe("parseJatsBody - preformat", () => {
     `;
     const sections = parseJatsBody(xml);
     const content = sections[0]?.content;
+    if (!content) throw new Error("expected content");
     expect(content).toHaveLength(1);
     expect(content[0]?.type).toBe("preformat");
     if (content[0]?.type === "preformat") {
@@ -2505,6 +2548,7 @@ describe("parseJatsBody - supplementary-material", () => {
     `;
     const sections = parseJatsBody(xml);
     const content = sections[0]?.content;
+    if (!content) throw new Error("expected content");
     expect(content).toHaveLength(1);
     expect(content[0]?.type).toBe("paragraph");
     if (content[0]?.type === "paragraph") {
@@ -2529,6 +2573,7 @@ describe("parseJatsBody - supplementary-material", () => {
     `;
     const sections = parseJatsBody(xml);
     const content = sections[0]?.content;
+    if (!content) throw new Error("expected content");
     expect(content).toHaveLength(1);
     expect(content[0]?.type).toBe("paragraph");
     if (content[0]?.type === "paragraph") {
@@ -2570,6 +2615,7 @@ describe("E2E: multi-paragraph table cells in body", () => {
     `;
     const sections = parseJatsBody(xml);
     const table = sections[0]?.content[0];
+    if (!table) throw new Error("expected table");
     expect(table.type).toBe("table");
     if (table.type === "table") {
       expect(table.rows[0]?.[0]).toBe(

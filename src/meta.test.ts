@@ -72,7 +72,7 @@ describe("Meta.json Management", () => {
       // Verify 2-space indentation
       expect(raw).toContain('  "dirName"');
       // Verify it's valid JSON
-      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      const parsed = JSON.parse(raw) as { dirName: string };
       expect(parsed.dirName).toBe("smith2024-a1b2c3d4");
     });
 

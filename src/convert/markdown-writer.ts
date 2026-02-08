@@ -72,7 +72,7 @@ function renderTable(block: Extract<BlockElement, { type: "table" }>): string {
     lines.push(`| ${block.headers.join(" | ")} |`);
     lines.push(`| ${block.headers.map(() => "---").join(" | ")} |`);
   } else if (block.rows.length > 0) {
-    const colCount = block.rows[0]?.length;
+    const colCount = block.rows[0]?.length ?? 0;
     lines.push(`| ${Array.from({ length: colCount }, () => "").join(" | ")} |`);
     lines.push(`| ${Array.from({ length: colCount }, () => "---").join(" | ")} |`);
   }

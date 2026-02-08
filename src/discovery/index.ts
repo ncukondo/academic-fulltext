@@ -141,7 +141,7 @@ async function runSourceChecker(
   try {
     const result = await checker(article, config);
     if (result === undefined) return { skipped: true };
-    return { skipped: false, locations: result ?? undefined };
+    return { skipped: false, locations: result ?? [] };
   } catch (err) {
     return { skipped: false, error: String(err) };
   }

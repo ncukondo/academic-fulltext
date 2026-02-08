@@ -393,7 +393,11 @@ function parseVolumeAndPages(metaChildren: OrderedNode[]): {
     if (elocationNode) pages = extractAllText(elocationNode.children);
   }
 
-  return { volume, issue, pages };
+  const result: { volume?: string; issue?: string; pages?: string } = {};
+  if (volume !== undefined) result.volume = volume;
+  if (issue !== undefined) result.issue = issue;
+  if (pages !== undefined) result.pages = pages;
+  return result;
 }
 
 /** Extract journal name from front matter journal-meta. */
@@ -470,17 +474,23 @@ export function parseJatsMetadata(xml: string): JatsMetadata {
 
   const metaChildren = articleMeta.children;
 
+  const journal = parseJournalName(front.children);
+  const publicationDate = parsePublicationDate(metaChildren);
+  const articleType = article.attrs["article-type"] || undefined;
+  const license = parseLicense(metaChildren);
+  const abstract = parseAbstract(metaChildren);
+
   return assembleMetadata(
     { title: parseArticleTitle(metaChildren), authors: parseAuthors(metaChildren) },
     {
       ...parseArticleIds(metaChildren),
-      journal: parseJournalName(front.children),
-      publicationDate: parsePublicationDate(metaChildren),
+      ...(journal !== undefined ? { journal } : {}),
+      ...(publicationDate !== undefined ? { publicationDate } : {}),
       ...parseVolumeAndPages(metaChildren),
       keywords: parseKeywords(metaChildren),
-      articleType: article.attrs["article-type"] || undefined,
-      license: parseLicense(metaChildren),
-      abstract: parseAbstract(metaChildren),
+      ...(articleType !== undefined ? { articleType } : {}),
+      ...(license !== undefined ? { license } : {}),
+      ...(abstract !== undefined ? { abstract } : {}),
     }
   );
 }
@@ -689,7 +699,7 @@ function parseTableWrap(tableWrapNode: OrderedNode): {
   if (thead) {
     const headRows = findChildren(thead.children, "tr");
     if (headRows.length > 0) {
-      result.headers.push(...parseTableRow(headRows[0]?.children));
+      result.headers.push(...parseTableRow(headRows[0]?.children ?? []));
     }
   }
 
@@ -1177,10 +1187,11 @@ function stripPubIdValues(
 
 /** Parse a single <ref> element into a JatsReference, or return null if invalid. */
 function parseSingleReference(ref: {
+  node: OrderedNode;
   children: OrderedNode[];
   attrs: Record<string, string>;
 }): JatsReference | null {
-  const id = ref.attrs.id ?? "";
+  const id = getAttr(ref.node, "id") ?? "";
 
   // Determine the search scope: if <citation-alternatives> exists, search within it;
   // otherwise search direct children of <ref>
@@ -1274,6 +1285,7 @@ function parseAppendices(backChildren: OrderedNode[]): JatsSection[] | undefined
 
 /** Parse a single footnote element into a JatsFootnote. */
 function parseSingleFootnote(fn: {
+  node: OrderedNode;
   children: OrderedNode[];
   attrs: Record<string, string>;
 }): JatsFootnote {
@@ -1291,7 +1303,7 @@ function parseSingleFootnote(fn: {
     if (pText) parts.push(pText);
   }
   return {
-    id: fn.attrs.id ?? "",
+    id: getAttr(fn.node, "id") ?? "",
     text: parts.join(" "),
   };
 }
@@ -1408,9 +1420,12 @@ export function parseJatsBackMatter(xml: string): BackMatterResult {
   // Parse <back> children
   const back = findChild(article.children, "back");
   if (back) {
-    result.acknowledgments = parseAcknowledgments(back.children);
-    result.appendices = parseAppendices(back.children);
-    result.footnotes = parseFootnotes(back.children);
+    const ack = parseAcknowledgments(back.children);
+    if (ack) result.acknowledgments = ack;
+    const app = parseAppendices(back.children);
+    if (app) result.appendices = app;
+    const fn = parseFootnotes(back.children);
+    if (fn) result.footnotes = fn;
 
     const notes = parseNotes(back.children);
     const glossaryNotes = parseGlossary(back.children);
@@ -1420,7 +1435,8 @@ export function parseJatsBackMatter(xml: string): BackMatterResult {
   }
 
   // Floats-group: <floats-group> (sibling of <body> and <back>)
-  result.floats = parseFloatsGroup(article.children);
+  const floats = parseFloatsGroup(article.children);
+  if (floats) result.floats = floats;
 
   return result;
 }
