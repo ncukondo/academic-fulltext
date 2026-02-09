@@ -4,7 +4,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { OALocation } from "../types.js";
-import { checkUnpaywall } from "./unpaywall.js";
+import { checkUnpaywall, checkUnpaywallDetailed, extractPmcidFromUrl } from "./unpaywall.js";
 
 // Mock fetch globally
 const mockFetch = vi.fn();
@@ -207,5 +207,112 @@ describe("checkUnpaywall", () => {
     expect(locs).toHaveLength(3);
     const versions = locs.map((l) => l.version);
     expect(versions).toEqual(["published", "accepted", "submitted"]);
+  });
+});
+
+describe("extractPmcidFromUrl", () => {
+  it("extracts PMCID from PMC PDF URL", () => {
+    expect(extractPmcidFromUrl("https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1234567/pdf/")).toBe(
+      "PMC1234567"
+    );
+  });
+
+  it("extracts PMCID from PMC landing page URL", () => {
+    expect(extractPmcidFromUrl("https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9876543/")).toBe(
+      "PMC9876543"
+    );
+  });
+
+  it("extracts PMCID from europepmc URL", () => {
+    expect(extractPmcidFromUrl("https://europepmc.org/articles/pmc/articles/PMC5555555")).toBe(
+      "PMC5555555"
+    );
+  });
+
+  it("returns null for non-PMC URL", () => {
+    expect(extractPmcidFromUrl("https://example.com/paper.pdf")).toBeNull();
+  });
+
+  it("returns null for empty string", () => {
+    expect(extractPmcidFromUrl("")).toBeNull();
+  });
+});
+
+describe("checkUnpaywallDetailed", () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+  });
+
+  it("returns locations and extracted PMCID", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          is_oa: true,
+          oa_locations: [
+            {
+              url_for_pdf: "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1234567/pdf/",
+              url_for_landing_page: "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1234567/",
+              license: "cc-by",
+              version: "publishedVersion",
+              host_type: "repository",
+            },
+            {
+              url_for_pdf: "https://example.com/paper.pdf",
+              version: "publishedVersion",
+              host_type: "publisher",
+            },
+          ],
+        }),
+    });
+
+    const result = await checkUnpaywallDetailed("10.1234/example", "test@example.com");
+
+    expect(result).not.toBeNull();
+    expect(result?.locations).toHaveLength(2);
+    expect(result?.pmcid).toBe("PMC1234567");
+  });
+
+  it("returns locations without PMCID when no PMC URL present", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          is_oa: true,
+          oa_locations: [
+            {
+              url_for_pdf: "https://example.com/paper.pdf",
+              version: "publishedVersion",
+              host_type: "publisher",
+            },
+          ],
+        }),
+    });
+
+    const result = await checkUnpaywallDetailed("10.1234/no-pmc", "test@example.com");
+
+    expect(result).not.toBeNull();
+    expect(result?.locations).toHaveLength(1);
+    expect(result?.pmcid).toBeUndefined();
+  });
+
+  it("returns null for closed access article", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          is_oa: false,
+          oa_locations: [],
+        }),
+    });
+
+    const result = await checkUnpaywallDetailed("10.1234/closed", "test@example.com");
+    expect(result).toBeNull();
+  });
+
+  it("returns null when DOI is empty", async () => {
+    const result = await checkUnpaywallDetailed("", "test@example.com");
+    expect(result).toBeNull();
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 });

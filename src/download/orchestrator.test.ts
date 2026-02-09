@@ -4,7 +4,12 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FulltextMeta } from "../types.js";
-import { type FetchArticle, fetchAllFulltexts, fetchFulltext } from "./orchestrator.js";
+import {
+  type DownloadAttempt,
+  type FetchArticle,
+  fetchAllFulltexts,
+  fetchFulltext,
+} from "./orchestrator.js";
 
 // Mock downloader and pmc-xml
 vi.mock("./downloader.js", () => ({
@@ -158,7 +163,7 @@ describe("fetchFulltext", () => {
     );
   });
 
-  it("handles download failure gracefully", async () => {
+  it("handles download failure gracefully with detailed error", async () => {
     mockDownloadPdf.mockResolvedValue({ success: false, error: "HTTP 403 Forbidden" });
     mockDownloadPmcXml.mockResolvedValue({ success: false, error: "HTTP 404 Not Found" });
 
@@ -168,6 +173,10 @@ describe("fetchFulltext", () => {
 
     expect(result.status).toBe("failed");
     expect(result.error).toBeDefined();
+    expect(result.error).toContain("pmc");
+    expect(result.error).toContain("HTTP 403 Forbidden");
+    expect(result.attempts).toBeDefined();
+    expect(result.attempts?.length).toBeGreaterThan(0);
   });
 
   it("skips if already has PDF file", async () => {
@@ -192,7 +201,7 @@ describe("fetchFulltext", () => {
     expect(mockDownloadPdf).not.toHaveBeenCalled();
   });
 
-  it("falls back to next source on failure", async () => {
+  it("falls back to next source on failure and records attempts", async () => {
     mockDownloadPdf
       .mockResolvedValueOnce({ success: false, error: "HTTP 403" })
       .mockResolvedValueOnce({ success: true, size: 2048 });
@@ -218,6 +227,37 @@ describe("fetchFulltext", () => {
 
     expect(result.status).toBe("downloaded");
     expect(mockDownloadPdf).toHaveBeenCalledTimes(2);
+    // Should record the failed PMC attempt even though unpaywall succeeded
+    expect(result.attempts).toBeDefined();
+    expect(result.attempts).toHaveLength(1);
+    const attempt = result.attempts?.[0] as DownloadAttempt;
+    expect(attempt.source).toBe("pmc");
+    expect(attempt.fileType).toBe("pdf");
+    expect(attempt.error).toBe("HTTP 403");
+  });
+
+  it("records XML download failure in attempts", async () => {
+    mockDownloadPdf.mockResolvedValue({ success: false, error: "HTTP 403 Forbidden" });
+    mockDownloadPmcXml.mockResolvedValue({ success: false, error: "HTTP 500 Server Error" });
+
+    const article = createTestArticle();
+    const result = await fetchFulltext(article, "/sessions/test");
+
+    expect(result.status).toBe("failed");
+    expect(result.attempts).toBeDefined();
+    const xmlAttempt = result.attempts?.find((a) => a.fileType === "xml");
+    expect(xmlAttempt).toBeDefined();
+    expect(xmlAttempt?.source).toBe("pmc");
+    expect(xmlAttempt?.error).toBe("HTTP 500 Server Error");
+  });
+
+  it("includes no attempts when download succeeds on first try", async () => {
+    const article = createTestArticle();
+    const result = await fetchFulltext(article, "/sessions/test");
+
+    expect(result.status).toBe("downloaded");
+    // No failed attempts when both PDF and XML succeed on first try
+    expect(result.attempts).toBeUndefined();
   });
 });
 

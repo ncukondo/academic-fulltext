@@ -28,11 +28,19 @@ export interface FetchOptions {
   sourceFilter?: string[];
 }
 
+export interface DownloadAttempt {
+  source: string;
+  url: string;
+  fileType: "pdf" | "xml";
+  error: string;
+}
+
 export interface FetchResult {
   dirName: string;
   status: "downloaded" | "failed" | "skipped";
   filesDownloaded?: string[];
   error?: string;
+  attempts?: DownloadAttempt[];
 }
 
 /** Sort OA locations by source priority */
@@ -68,43 +76,77 @@ function buildFileInfo(filename: string, source: string, size?: number): FileInf
   return info;
 }
 
+interface PdfDownloadResult {
+  fileInfo?: FileInfo;
+  attempts: DownloadAttempt[];
+}
+
 /**
  * Try downloading a PDF from prioritized OA locations.
- * Returns FileInfo on success, or undefined if all sources fail.
+ * Returns FileInfo on success plus all failed attempts.
  */
 async function tryDownloadPdf(
   pdfLocations: OALocation[],
   articleDir: string,
   options?: FetchOptions
-): Promise<FileInfo | undefined> {
+): Promise<PdfDownloadResult> {
   const pdfPath = join(articleDir, "fulltext.pdf");
+  const attempts: DownloadAttempt[] = [];
+
   for (const loc of pdfLocations) {
     const result = await downloadPdf(loc.url, pdfPath, {
       retries: options?.retries ?? 3,
       retryDelay: options?.retryDelay ?? 1000,
     });
     if (result.success) {
-      return buildFileInfo("fulltext.pdf", loc.source, result.size);
+      return { fileInfo: buildFileInfo("fulltext.pdf", loc.source, result.size), attempts };
     }
+    attempts.push({
+      source: loc.source,
+      url: loc.url,
+      fileType: "pdf",
+      error: result.error ?? "Unknown error",
+    });
   }
-  return undefined;
+  return { attempts };
+}
+
+interface XmlDownloadResult {
+  fileInfo?: FileInfo;
+  attempt?: DownloadAttempt;
 }
 
 /**
  * Try downloading PMC XML for a given PMCID.
- * Returns FileInfo on success, or undefined on failure or if no PMCID.
+ * Returns FileInfo on success plus the failed attempt if applicable.
  */
 async function tryDownloadXml(
   pmcid: string | undefined,
   articleDir: string
-): Promise<FileInfo | undefined> {
-  if (!pmcid) return undefined;
+): Promise<XmlDownloadResult> {
+  if (!pmcid) return {};
   const xmlPath = join(articleDir, "fulltext.xml");
   const result = await downloadPmcXml(pmcid, xmlPath);
   if (result.success) {
-    return buildFileInfo("fulltext.xml", "pmc", result.size);
+    return { fileInfo: buildFileInfo("fulltext.xml", "pmc", result.size) };
   }
-  return undefined;
+  const numericId = pmcid.replace(/^PMC/i, "");
+  return {
+    attempt: {
+      source: "pmc",
+      url: `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pmc&id=${numericId}&rettype=xml`,
+      fileType: "xml",
+      error: result.error ?? "Unknown error",
+    },
+  };
+}
+
+/** Build a detailed error message from download attempts */
+function buildDetailedError(attempts: DownloadAttempt[]): string {
+  if (attempts.length === 0) return "No download sources available";
+
+  const details = attempts.map((a) => `${a.source} (${a.fileType}): ${a.error}`).join("; ");
+  return `All download sources failed: ${details}`;
 }
 
 /**
@@ -138,22 +180,27 @@ export async function fetchFulltext(
   // Filter, sort, and attempt PDF download
   const locations = applySourceFilter(article.oaLocations, options?.sourceFilter);
   const pdfLocations = sortByPriority(getPdfLocations(locations));
-  const pdfFileInfo = await tryDownloadPdf(pdfLocations, articleDir, options);
+  const pdfResult = await tryDownloadPdf(pdfLocations, articleDir, options);
 
   // Attempt PMC XML download
-  const xmlFileInfo = await tryDownloadXml(article.pmcid, articleDir);
+  const xmlResult = await tryDownloadXml(article.pmcid, articleDir);
 
-  // Collect downloaded filenames
+  // Collect downloaded filenames and all attempts
   const filesDownloaded: string[] = [];
-  if (pdfFileInfo) filesDownloaded.push(pdfFileInfo.filename);
-  if (xmlFileInfo) filesDownloaded.push(xmlFileInfo.filename);
+  if (pdfResult.fileInfo) filesDownloaded.push(pdfResult.fileInfo.filename);
+  if (xmlResult.fileInfo) filesDownloaded.push(xmlResult.fileInfo.filename);
+
+  const allAttempts: DownloadAttempt[] = [...pdfResult.attempts];
+  if (xmlResult.attempt) allAttempts.push(xmlResult.attempt);
 
   if (filesDownloaded.length === 0) {
-    return {
+    const failResult: FetchResult = {
       dirName: article.dirName,
       status: "failed",
-      error: "All download sources failed",
+      error: buildDetailedError(allAttempts),
     };
+    if (allAttempts.length > 0) failResult.attempts = allAttempts;
+    return failResult;
   }
 
   // Update meta.json with new file info
@@ -161,17 +208,19 @@ export async function fetchFulltext(
     ...meta,
     files: {
       ...meta.files,
-      ...(pdfFileInfo ? { pdf: pdfFileInfo } : {}),
-      ...(xmlFileInfo ? { xml: xmlFileInfo } : {}),
+      ...(pdfResult.fileInfo ? { pdf: pdfResult.fileInfo } : {}),
+      ...(xmlResult.fileInfo ? { xml: xmlResult.fileInfo } : {}),
     },
   };
   await saveMeta(metaPath, updatedMeta);
 
-  return {
+  const successResult: FetchResult = {
     dirName: article.dirName,
     status: "downloaded",
     filesDownloaded,
   };
+  if (allAttempts.length > 0) successResult.attempts = allAttempts;
+  return successResult;
 }
 
 /**
