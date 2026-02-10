@@ -992,6 +992,33 @@ function parseSection(secChildren: OrderedNode[], level: number): JatsSection {
   return { title, level, content, subsections };
 }
 
+/** Flush buffered block nodes as an untitled section if non-empty. */
+function flushBlockBuffer(buffer: OrderedNode[], sections: JatsSection[]): void {
+  const content = parseBlockContent(buffer);
+  if (content.length > 0) {
+    sections.push({ title: "", level: 2, content, subsections: [] });
+  }
+}
+
+/** Parse mixed body children (interleaved <p> and <sec>) in document order. */
+function parseMixedBodyChildren(children: OrderedNode[], sections: JatsSection[]): void {
+  let blockBuffer: OrderedNode[] = [];
+  for (const child of children) {
+    if (getTagName(child) === "sec") {
+      if (blockBuffer.length > 0) {
+        flushBlockBuffer(blockBuffer, sections);
+        blockBuffer = [];
+      }
+      sections.push(parseSection(getChildren(child), 2));
+    } else {
+      blockBuffer.push(child);
+    }
+  }
+  if (blockBuffer.length > 0) {
+    flushBlockBuffer(blockBuffer, sections);
+  }
+}
+
 /**
  * Parse JATS XML body to extract sections and content.
  */
@@ -1007,34 +1034,9 @@ export function parseJatsBody(xml: string): JatsSection[] {
   const secs = findChildren(body.children, "sec");
 
   if (secs.length > 0) {
-    let blockBuffer: OrderedNode[] = [];
-    for (const child of body.children) {
-      const tag = getTagName(child);
-      if (tag === "sec") {
-        if (blockBuffer.length > 0) {
-          const content = parseBlockContent(blockBuffer);
-          if (content.length > 0) {
-            sections.push({ title: "", level: 2, content, subsections: [] });
-          }
-          blockBuffer = [];
-        }
-        sections.push(parseSection(getChildren(child), 2));
-      } else {
-        blockBuffer.push(child);
-      }
-    }
-    if (blockBuffer.length > 0) {
-      const content = parseBlockContent(blockBuffer);
-      if (content.length > 0) {
-        sections.push({ title: "", level: 2, content, subsections: [] });
-      }
-    }
+    parseMixedBodyChildren(body.children, sections);
   } else {
-    // Body has paragraphs without sections
-    const content = parseBlockContent(body.children);
-    if (content.length > 0) {
-      sections.push({ title: "", level: 2, content, subsections: [] });
-    }
+    flushBlockBuffer(body.children, sections);
   }
 
   return sections;

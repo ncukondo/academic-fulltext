@@ -3179,7 +3179,9 @@ describe("parseJatsBody - mixed <p> and <sec> children", () => {
     expect(sections[0]?.content).toHaveLength(2);
     expect(sections[0]?.content[0]?.type).toBe("paragraph");
     if (sections[0]?.content[0]?.type === "paragraph") {
-      const text = sections[0].content[0].content.map((c) => (c.type === "text" ? c.text : "")).join("");
+      const text = sections[0].content[0].content
+        .map((c) => (c.type === "text" ? c.text : ""))
+        .join("");
       expect(text).toContain("Opening paragraph");
     }
     // Second section: the actual <sec>
@@ -3210,14 +3212,18 @@ describe("parseJatsBody - mixed <p> and <sec> children", () => {
     expect(sections[1]?.title).toBe("");
     expect(sections[1]?.content).toHaveLength(1);
     if (sections[1]?.content[0]?.type === "paragraph") {
-      const text = sections[1].content[0].content.map((c) => (c.type === "text" ? c.text : "")).join("");
+      const text = sections[1].content[0].content
+        .map((c) => (c.type === "text" ? c.text : ""))
+        .join("");
       expect(text).toContain("Interleaved commentary");
     }
     expect(sections[2]?.title).toBe("Methods");
     // Trailing paragraph becomes untitled section
     expect(sections[3]?.title).toBe("");
     if (sections[3]?.content[0]?.type === "paragraph") {
-      const text = sections[3].content[0].content.map((c) => (c.type === "text" ? c.text : "")).join("");
+      const text = sections[3].content[0].content
+        .map((c) => (c.type === "text" ? c.text : ""))
+        .join("");
       expect(text).toContain("Closing remark");
     }
   });
