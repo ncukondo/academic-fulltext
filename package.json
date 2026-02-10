@@ -27,7 +27,8 @@
   },
   "dependencies": {
     "any-ascii": "^0.3.3",
-    "fast-xml-parser": "^5.3.3"
+    "fast-xml-parser": "^5.3.3",
+    "node-html-parser": "^7.0.2"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.0",
