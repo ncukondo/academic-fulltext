@@ -259,6 +259,117 @@ describe("fetchFulltext", () => {
     // No failed attempts when both PDF and XML succeed on first try
     expect(result.attempts).toBeUndefined();
   });
+
+  it("classifies 403 error as publisher_block with suggestedUrls", async () => {
+    mockDownloadPdf.mockResolvedValue({ success: false, error: "HTTP 403 Forbidden" });
+    mockDownloadPmcXml.mockResolvedValue({ success: false, error: "HTTP 404 Not Found" });
+
+    const article = createTestArticle({
+      noPmcid: true,
+      oaLocations: [
+        {
+          source: "publisher",
+          url: "https://publisher.example.com/article.pdf",
+          urlType: "pdf",
+          version: "published",
+        },
+        {
+          source: "publisher",
+          url: "https://publisher.example.com/article",
+          urlType: "html",
+          version: "published",
+        },
+      ],
+    });
+
+    const result = await fetchFulltext(article, "/sessions/test");
+
+    expect(result.status).toBe("failed");
+    expect(result.failureType).toBe("publisher_block");
+    expect(result.suggestedUrls).toBeDefined();
+    expect(result.suggestedUrls).toContain("https://publisher.example.com/article");
+    expect(result.suggestedUrls).toContain("https://publisher.example.com/article.pdf");
+  });
+
+  it("classifies no sources as no_sources", async () => {
+    mockDownloadPmcXml.mockResolvedValue({ success: false, error: "HTTP 404" });
+
+    const article = createTestArticle({
+      noPmcid: true,
+      oaLocations: [],
+    });
+
+    const result = await fetchFulltext(article, "/sessions/test");
+
+    expect(result.status).toBe("failed");
+    expect(result.failureType).toBe("no_sources");
+  });
+
+  it("classifies 5xx error as network_error", async () => {
+    mockDownloadPdf.mockResolvedValue({ success: false, error: "HTTP 500 Internal Server Error" });
+    mockDownloadPmcXml.mockResolvedValue({
+      success: false,
+      error: "HTTP 500 Internal Server Error",
+    });
+
+    const article = createTestArticle({
+      oaLocations: [
+        {
+          source: "pmc",
+          url: "https://pmc.example.com/pdf/",
+          urlType: "pdf",
+          version: "published",
+        },
+      ],
+    });
+
+    const result = await fetchFulltext(article, "/sessions/test");
+
+    expect(result.status).toBe("failed");
+    expect(result.failureType).toBe("network_error");
+  });
+
+  it("writes pendingDownload to meta.json on failure with suggestedUrls", async () => {
+    mockDownloadPdf.mockResolvedValue({ success: false, error: "HTTP 403 Forbidden" });
+    mockDownloadPmcXml.mockResolvedValue({ success: false, error: "HTTP 404 Not Found" });
+
+    const article = createTestArticle({
+      noPmcid: true,
+      oaLocations: [
+        {
+          source: "publisher",
+          url: "https://publisher.example.com/article.pdf",
+          urlType: "pdf",
+          version: "published",
+        },
+        {
+          source: "publisher",
+          url: "https://publisher.example.com/article",
+          urlType: "html",
+          version: "published",
+        },
+      ],
+    });
+
+    await fetchFulltext(article, "/sessions/test");
+
+    expect(mockSaveMeta).toHaveBeenCalled();
+    const savedMeta = mockSaveMeta.mock.calls[0]?.[1] as FulltextMeta;
+    expect(savedMeta.pendingDownload).toBeDefined();
+    expect(savedMeta.pendingDownload?.suggestedUrls).toContain(
+      "https://publisher.example.com/article"
+    );
+    expect(savedMeta.pendingDownload?.addedAt).toBeDefined();
+  });
+
+  it("does not set failureType or suggestedUrls on success", async () => {
+    const article = createTestArticle();
+    const result = await fetchFulltext(article, "/sessions/test");
+
+    expect(result.status).toBe("downloaded");
+    expect(result.failureType).toBeUndefined();
+    expect(result.suggestedUrls).toBeUndefined();
+  });
 });
 
 describe("fetchAllFulltexts", () => {

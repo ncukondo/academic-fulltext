@@ -41,6 +41,8 @@ export interface FetchResult {
   filesDownloaded?: string[];
   error?: string;
   attempts?: DownloadAttempt[];
+  failureType?: "publisher_block" | "no_sources" | "network_error";
+  suggestedUrls?: string[];
 }
 
 /** Sort OA locations by source priority */
@@ -149,6 +151,46 @@ function buildDetailedError(attempts: DownloadAttempt[]): string {
   return `All download sources failed: ${details}`;
 }
 
+/** Classify the type of failure based on download attempts */
+function classifyFailure(
+  attempts: DownloadAttempt[]
+): "publisher_block" | "no_sources" | "network_error" {
+  if (attempts.length === 0) return "no_sources";
+  const hasBlock = attempts.some(
+    (a) => a.error.includes("HTTP 403") || a.error.includes("HTTP 401")
+  );
+  if (hasBlock) return "publisher_block";
+  return "network_error";
+}
+
+/** Collect suggested URLs for manual download from OA locations and failed attempts */
+function collectSuggestedUrls(oaLocations: OALocation[], attempts: DownloadAttempt[]): string[] {
+  const blockedUrls = new Set(
+    attempts
+      .filter((a) => a.error.includes("HTTP 403") || a.error.includes("HTTP 401"))
+      .map((a) => a.url)
+  );
+
+  const sorted = sortByPriority(oaLocations);
+  const urls: string[] = [];
+  const seen = new Set<string>();
+
+  for (const loc of sorted) {
+    if (loc.urlType === "html" && !seen.has(loc.url)) {
+      urls.push(loc.url);
+      seen.add(loc.url);
+    }
+  }
+  for (const loc of sorted) {
+    if (loc.urlType === "pdf" && blockedUrls.has(loc.url) && !seen.has(loc.url)) {
+      urls.push(loc.url);
+      seen.add(loc.url);
+    }
+  }
+
+  return urls;
+}
+
 /**
  * Fetch fulltext for a single article.
  * Downloads PDF from the best available source, plus PMC XML if available.
@@ -194,12 +236,30 @@ export async function fetchFulltext(
   if (xmlResult.attempt) allAttempts.push(xmlResult.attempt);
 
   if (filesDownloaded.length === 0) {
+    const failureType = classifyFailure(allAttempts);
+    const suggestedUrls = collectSuggestedUrls(article.oaLocations, allAttempts);
+
     const failResult: FetchResult = {
       dirName: article.dirName,
       status: "failed",
       error: buildDetailedError(allAttempts),
+      failureType,
     };
     if (allAttempts.length > 0) failResult.attempts = allAttempts;
+    if (suggestedUrls.length > 0) failResult.suggestedUrls = suggestedUrls;
+
+    // Write pendingDownload to meta.json when we have suggested URLs
+    if (suggestedUrls.length > 0) {
+      const updatedMeta: FulltextMeta = {
+        ...meta,
+        pendingDownload: {
+          suggestedUrls,
+          addedAt: new Date().toISOString(),
+        },
+      };
+      await saveMeta(metaPath, updatedMeta);
+    }
+
     return failResult;
   }
 
