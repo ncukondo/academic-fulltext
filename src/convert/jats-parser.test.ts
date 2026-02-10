@@ -3157,3 +3157,68 @@ describe("parseJatsBackMatter - glossary", () => {
     );
   });
 });
+
+describe("parseJatsBody - mixed <p> and <sec> children", () => {
+  it("preserves <p> elements before <sec> elements", () => {
+    const xml = `
+      <article>
+        <body>
+          <p>Opening paragraph of a letter.</p>
+          <p>Second introductory paragraph.</p>
+          <sec>
+            <title>Supplementary Material</title>
+            <p>Details about supplements.</p>
+          </sec>
+        </body>
+      </article>
+    `;
+    const sections = parseJatsBody(xml);
+    expect(sections).toHaveLength(2);
+    // First section: untitled, contains the two <p> elements
+    expect(sections[0]?.title).toBe("");
+    expect(sections[0]?.content).toHaveLength(2);
+    expect(sections[0]?.content[0]?.type).toBe("paragraph");
+    if (sections[0]?.content[0]?.type === "paragraph") {
+      const text = sections[0].content[0].content.map((c) => (c.type === "text" ? c.text : "")).join("");
+      expect(text).toContain("Opening paragraph");
+    }
+    // Second section: the actual <sec>
+    expect(sections[1]?.title).toBe("Supplementary Material");
+  });
+
+  it("preserves <p> elements interleaved between <sec> elements", () => {
+    const xml = `
+      <article>
+        <body>
+          <sec>
+            <title>Introduction</title>
+            <p>Intro text.</p>
+          </sec>
+          <p>Interleaved commentary paragraph.</p>
+          <sec>
+            <title>Methods</title>
+            <p>Methods text.</p>
+          </sec>
+          <p>Closing remark.</p>
+        </body>
+      </article>
+    `;
+    const sections = parseJatsBody(xml);
+    expect(sections).toHaveLength(4);
+    expect(sections[0]?.title).toBe("Introduction");
+    // Interleaved paragraph becomes untitled section
+    expect(sections[1]?.title).toBe("");
+    expect(sections[1]?.content).toHaveLength(1);
+    if (sections[1]?.content[0]?.type === "paragraph") {
+      const text = sections[1].content[0].content.map((c) => (c.type === "text" ? c.text : "")).join("");
+      expect(text).toContain("Interleaved commentary");
+    }
+    expect(sections[2]?.title).toBe("Methods");
+    // Trailing paragraph becomes untitled section
+    expect(sections[3]?.title).toBe("");
+    if (sections[3]?.content[0]?.type === "paragraph") {
+      const text = sections[3].content[0].content.map((c) => (c.type === "text" ? c.text : "")).join("");
+      expect(text).toContain("Closing remark");
+    }
+  });
+});

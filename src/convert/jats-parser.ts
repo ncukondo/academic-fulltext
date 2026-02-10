@@ -1007,8 +1007,27 @@ export function parseJatsBody(xml: string): JatsSection[] {
   const secs = findChildren(body.children, "sec");
 
   if (secs.length > 0) {
-    for (const sec of secs) {
-      sections.push(parseSection(sec.children, 2));
+    let blockBuffer: OrderedNode[] = [];
+    for (const child of body.children) {
+      const tag = getTagName(child);
+      if (tag === "sec") {
+        if (blockBuffer.length > 0) {
+          const content = parseBlockContent(blockBuffer);
+          if (content.length > 0) {
+            sections.push({ title: "", level: 2, content, subsections: [] });
+          }
+          blockBuffer = [];
+        }
+        sections.push(parseSection(getChildren(child), 2));
+      } else {
+        blockBuffer.push(child);
+      }
+    }
+    if (blockBuffer.length > 0) {
+      const content = parseBlockContent(blockBuffer);
+      if (content.length > 0) {
+        sections.push({ title: "", level: 2, content, subsections: [] });
+      }
     }
   } else {
     // Body has paragraphs without sections
