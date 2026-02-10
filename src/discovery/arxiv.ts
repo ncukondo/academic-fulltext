@@ -33,5 +33,11 @@ export function checkArxiv(arxivId: string): OALocation[] | null {
       urlType: "pdf",
       version: "submitted",
     },
+    {
+      source: "arxiv",
+      url: `https://arxiv.org/html/${id}`,
+      urlType: "html",
+      version: "submitted",
+    },
   ];
 }

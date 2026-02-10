@@ -77,6 +77,7 @@ export interface FulltextMeta {
   files: {
     pdf?: FileInfo;
     xml?: FileInfo;
+    html?: FileInfo;
     markdown?: FileInfo;
   };
 
@@ -99,6 +100,7 @@ export interface ArticleFulltextRef {
   hasFiles: {
     pdf: boolean;
     xml: boolean;
+    html: boolean;
     markdown: boolean;
   };
 }

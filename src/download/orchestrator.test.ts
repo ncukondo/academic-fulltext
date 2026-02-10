@@ -20,6 +20,10 @@ vi.mock("./pmc-xml.js", () => ({
   downloadPmcXml: vi.fn(),
 }));
 
+vi.mock("./arxiv-html.js", () => ({
+  downloadArxivHtml: vi.fn(),
+}));
+
 // Mock meta and paths
 vi.mock("../meta.js", () => ({
   loadMeta: vi.fn(),
@@ -40,11 +44,13 @@ vi.mock("node:fs/promises", () => ({
 }));
 
 import { loadMeta, saveMeta } from "../meta.js";
+import { downloadArxivHtml } from "./arxiv-html.js";
 import { downloadPdf } from "./downloader.js";
 import { downloadPmcXml } from "./pmc-xml.js";
 
 const mockDownloadPdf = vi.mocked(downloadPdf);
 const mockDownloadPmcXml = vi.mocked(downloadPmcXml);
+const mockDownloadArxivHtml = vi.mocked(downloadArxivHtml);
 const mockLoadMeta = vi.mocked(loadMeta);
 const mockSaveMeta = vi.mocked(saveMeta);
 
@@ -96,6 +102,7 @@ describe("fetchFulltext", () => {
     mockSaveMeta.mockResolvedValue(undefined);
     mockDownloadPdf.mockResolvedValue({ success: true, size: 1024 });
     mockDownloadPmcXml.mockResolvedValue({ success: true, size: 512 });
+    mockDownloadArxivHtml.mockResolvedValue({ success: false, error: "HTTP 404 Not Found" });
   });
 
   it("fetches from best available source (by priority)", async () => {
@@ -362,6 +369,53 @@ describe("fetchFulltext", () => {
     expect(savedMeta.pendingDownload?.addedAt).toBeDefined();
   });
 
+  it("downloads arXiv HTML when arxivId is available", async () => {
+    mockDownloadArxivHtml.mockResolvedValue({ success: true, size: 2048 });
+
+    const article = createTestArticle({
+      arxivId: "2301.13867",
+    });
+
+    const result = await fetchFulltext(article, "/sessions/test");
+
+    expect(result.status).toBe("downloaded");
+    expect(mockDownloadArxivHtml).toHaveBeenCalledWith(
+      "2301.13867",
+      expect.stringContaining("fulltext.html")
+    );
+    expect(result.filesDownloaded).toContain("fulltext.html");
+  });
+
+  it("does not fail overall when arXiv HTML download fails", async () => {
+    mockDownloadArxivHtml.mockResolvedValue({ success: false, error: "HTTP 404 Not Found" });
+
+    const article = createTestArticle({
+      arxivId: "2504.10961",
+    });
+
+    const result = await fetchFulltext(article, "/sessions/test");
+
+    expect(result.status).toBe("downloaded");
+    expect(result.filesDownloaded).toContain("fulltext.pdf");
+    expect(result.filesDownloaded).not.toContain("fulltext.html");
+  });
+
+  it("saves HTML file info to meta.json", async () => {
+    mockDownloadArxivHtml.mockResolvedValue({ success: true, size: 2048 });
+
+    const article = createTestArticle({
+      arxivId: "2301.13867",
+    });
+
+    await fetchFulltext(article, "/sessions/test");
+
+    expect(mockSaveMeta).toHaveBeenCalled();
+    const savedMeta = mockSaveMeta.mock.calls[0]?.[1] as FulltextMeta;
+    expect(savedMeta.files.html).toBeDefined();
+    expect(savedMeta.files.html?.source).toBe("arxiv");
+    expect(savedMeta.files.html?.filename).toBe("fulltext.html");
+  });
+
   it("does not set failureType or suggestedUrls on success", async () => {
     const article = createTestArticle();
     const result = await fetchFulltext(article, "/sessions/test");
@@ -379,6 +433,7 @@ describe("fetchAllFulltexts", () => {
     mockSaveMeta.mockResolvedValue(undefined);
     mockDownloadPdf.mockResolvedValue({ success: true, size: 1024 });
     mockDownloadPmcXml.mockResolvedValue({ success: true, size: 512 });
+    mockDownloadArxivHtml.mockResolvedValue({ success: false, error: "HTTP 404 Not Found" });
   });
 
   it("processes multiple articles with concurrency limit", async () => {

@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { loadMeta, saveMeta } from "../meta.js";
 import { getArticleDir } from "../paths.js";
 import type { FileInfo, FulltextMeta, OALocation } from "../types.js";
+import { downloadArxivHtml } from "./arxiv-html.js";
 import { downloadPdf } from "./downloader.js";
 import { downloadPmcXml } from "./pmc-xml.js";
 
@@ -18,6 +19,7 @@ export interface FetchArticle {
   dirName: string;
   oaLocations: OALocation[];
   pmcid?: string;
+  arxivId?: string;
 }
 
 export interface FetchOptions {
@@ -31,7 +33,7 @@ export interface FetchOptions {
 export interface DownloadAttempt {
   source: string;
   url: string;
-  fileType: "pdf" | "xml";
+  fileType: "pdf" | "xml" | "html";
   error: string;
 }
 
@@ -143,6 +145,36 @@ async function tryDownloadXml(
   };
 }
 
+interface HtmlDownloadResult {
+  fileInfo?: FileInfo;
+  attempt?: DownloadAttempt;
+}
+
+/**
+ * Try downloading arXiv HTML for a given arXiv ID.
+ * Returns FileInfo on success plus the failed attempt if applicable.
+ */
+async function tryDownloadArxivHtml(
+  arxivId: string | undefined,
+  articleDir: string
+): Promise<HtmlDownloadResult> {
+  if (!arxivId) return {};
+  const htmlPath = join(articleDir, "fulltext.html");
+  const id = arxivId.replace(/^arXiv:/i, "");
+  const result = await downloadArxivHtml(arxivId, htmlPath);
+  if (result.success) {
+    return { fileInfo: buildFileInfo("fulltext.html", "arxiv", result.size) };
+  }
+  return {
+    attempt: {
+      source: "arxiv",
+      url: `https://arxiv.org/html/${id}`,
+      fileType: "html",
+      error: result.error ?? "Unknown error",
+    },
+  };
+}
+
 /** Build a detailed error message from download attempts */
 function buildDetailedError(attempts: DownloadAttempt[]): string {
   if (attempts.length === 0) return "No download sources available";
@@ -191,9 +223,65 @@ function collectSuggestedUrls(oaLocations: OALocation[], attempts: DownloadAttem
   return urls;
 }
 
+/** Collect downloaded file names from results. */
+function collectDownloadedFiles(
+  pdfResult: PdfDownloadResult,
+  xmlResult: XmlDownloadResult,
+  htmlResult: HtmlDownloadResult
+): string[] {
+  const files: string[] = [];
+  if (pdfResult.fileInfo) files.push(pdfResult.fileInfo.filename);
+  if (xmlResult.fileInfo) files.push(xmlResult.fileInfo.filename);
+  if (htmlResult.fileInfo) files.push(htmlResult.fileInfo.filename);
+  return files;
+}
+
+/** Collect all failed download attempts. */
+function collectAttempts(
+  pdfResult: PdfDownloadResult,
+  xmlResult: XmlDownloadResult,
+  htmlResult: HtmlDownloadResult
+): DownloadAttempt[] {
+  const attempts: DownloadAttempt[] = [...pdfResult.attempts];
+  if (xmlResult.attempt) attempts.push(xmlResult.attempt);
+  if (htmlResult.attempt) attempts.push(htmlResult.attempt);
+  return attempts;
+}
+
+/** Handle the case where all downloads failed. */
+async function handleAllFailed(
+  dirName: string,
+  meta: FulltextMeta,
+  metaPath: string,
+  oaLocations: OALocation[],
+  allAttempts: DownloadAttempt[]
+): Promise<FetchResult> {
+  const failureType = classifyFailure(allAttempts);
+  const suggestedUrls = collectSuggestedUrls(oaLocations, allAttempts);
+
+  const failResult: FetchResult = {
+    dirName,
+    status: "failed",
+    error: buildDetailedError(allAttempts),
+    failureType,
+  };
+  if (allAttempts.length > 0) failResult.attempts = allAttempts;
+  if (suggestedUrls.length > 0) failResult.suggestedUrls = suggestedUrls;
+
+  if (suggestedUrls.length > 0) {
+    const updatedMeta: FulltextMeta = {
+      ...meta,
+      pendingDownload: { suggestedUrls, addedAt: new Date().toISOString() },
+    };
+    await saveMeta(metaPath, updatedMeta);
+  }
+
+  return failResult;
+}
+
 /**
  * Fetch fulltext for a single article.
- * Downloads PDF from the best available source, plus PMC XML if available.
+ * Downloads PDF from the best available source, plus PMC XML and arXiv HTML if available.
  */
 export async function fetchFulltext(
   article: FetchArticle,
@@ -203,7 +291,6 @@ export async function fetchFulltext(
   const articleDir = getArticleDir(sessionDir, article.dirName);
   const metaPath = join(articleDir, "meta.json");
 
-  // Load meta to check existing files
   let meta: FulltextMeta;
   try {
     meta = await loadMeta(metaPath);
@@ -211,65 +298,32 @@ export async function fetchFulltext(
     return { dirName: article.dirName, status: "failed", error: "meta.json not found" };
   }
 
-  // Skip if already has PDF
   if (meta.files.pdf) {
     return { dirName: article.dirName, status: "skipped" };
   }
 
-  // Ensure directory exists
   await mkdir(articleDir, { recursive: true });
 
-  // Filter, sort, and attempt PDF download
   const locations = applySourceFilter(article.oaLocations, options?.sourceFilter);
   const pdfLocations = sortByPriority(getPdfLocations(locations));
   const pdfResult = await tryDownloadPdf(pdfLocations, articleDir, options);
-
-  // Attempt PMC XML download
   const xmlResult = await tryDownloadXml(article.pmcid, articleDir);
+  const htmlResult = await tryDownloadArxivHtml(article.arxivId, articleDir);
 
-  // Collect downloaded filenames and all attempts
-  const filesDownloaded: string[] = [];
-  if (pdfResult.fileInfo) filesDownloaded.push(pdfResult.fileInfo.filename);
-  if (xmlResult.fileInfo) filesDownloaded.push(xmlResult.fileInfo.filename);
-
-  const allAttempts: DownloadAttempt[] = [...pdfResult.attempts];
-  if (xmlResult.attempt) allAttempts.push(xmlResult.attempt);
+  const filesDownloaded = collectDownloadedFiles(pdfResult, xmlResult, htmlResult);
+  const allAttempts = collectAttempts(pdfResult, xmlResult, htmlResult);
 
   if (filesDownloaded.length === 0) {
-    const failureType = classifyFailure(allAttempts);
-    const suggestedUrls = collectSuggestedUrls(article.oaLocations, allAttempts);
-
-    const failResult: FetchResult = {
-      dirName: article.dirName,
-      status: "failed",
-      error: buildDetailedError(allAttempts),
-      failureType,
-    };
-    if (allAttempts.length > 0) failResult.attempts = allAttempts;
-    if (suggestedUrls.length > 0) failResult.suggestedUrls = suggestedUrls;
-
-    // Write pendingDownload to meta.json when we have suggested URLs
-    if (suggestedUrls.length > 0) {
-      const updatedMeta: FulltextMeta = {
-        ...meta,
-        pendingDownload: {
-          suggestedUrls,
-          addedAt: new Date().toISOString(),
-        },
-      };
-      await saveMeta(metaPath, updatedMeta);
-    }
-
-    return failResult;
+    return handleAllFailed(article.dirName, meta, metaPath, article.oaLocations, allAttempts);
   }
 
-  // Update meta.json with new file info
   const updatedMeta: FulltextMeta = {
     ...meta,
     files: {
       ...meta.files,
       ...(pdfResult.fileInfo ? { pdf: pdfResult.fileInfo } : {}),
       ...(xmlResult.fileInfo ? { xml: xmlResult.fileInfo } : {}),
+      ...(htmlResult.fileInfo ? { html: htmlResult.fileInfo } : {}),
     },
   };
   await saveMeta(metaPath, updatedMeta);

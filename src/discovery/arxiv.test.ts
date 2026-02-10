@@ -13,10 +13,10 @@ function assertLocations(result: OALocation[] | null): OALocation[] {
 }
 
 describe("checkArxiv", () => {
-  it("returns PDF URL for new-style arXiv ID (2401.12345)", () => {
+  it("returns PDF and HTML URLs for new-style arXiv ID (2401.12345)", () => {
     const result = checkArxiv("2401.12345");
     const locs = assertLocations(result);
-    expect(locs).toHaveLength(1);
+    expect(locs).toHaveLength(2);
     expect(locs).toEqual([
       expect.objectContaining({
         source: "arxiv",
@@ -24,20 +24,31 @@ describe("checkArxiv", () => {
         urlType: "pdf",
         version: "submitted",
       }),
-    ]);
-  });
-
-  it("returns PDF URL for new-style arXiv ID with version (2401.12345v2)", () => {
-    const result = checkArxiv("2401.12345v2");
-    const locs = assertLocations(result);
-    expect(locs).toEqual([
       expect.objectContaining({
-        url: "https://arxiv.org/pdf/2401.12345v2.pdf",
+        source: "arxiv",
+        url: "https://arxiv.org/html/2401.12345",
+        urlType: "html",
+        version: "submitted",
       }),
     ]);
   });
 
-  it("returns PDF URL for old-style arXiv ID (hep-ph/9901234)", () => {
+  it("returns PDF and HTML URLs for new-style arXiv ID with version (2401.12345v2)", () => {
+    const result = checkArxiv("2401.12345v2");
+    const locs = assertLocations(result);
+    expect(locs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          url: "https://arxiv.org/pdf/2401.12345v2.pdf",
+        }),
+        expect.objectContaining({
+          url: "https://arxiv.org/html/2401.12345v2",
+        }),
+      ])
+    );
+  });
+
+  it("returns PDF and HTML URLs for old-style arXiv ID (hep-ph/9901234)", () => {
     const result = checkArxiv("hep-ph/9901234");
     const locs = assertLocations(result);
     expect(locs).toEqual([
@@ -47,27 +58,43 @@ describe("checkArxiv", () => {
         urlType: "pdf",
         version: "submitted",
       }),
+      expect.objectContaining({
+        source: "arxiv",
+        url: "https://arxiv.org/html/hep-ph/9901234",
+        urlType: "html",
+        version: "submitted",
+      }),
     ]);
   });
 
-  it("returns PDF URL for old-style arXiv ID with version (hep-ph/9901234v1)", () => {
+  it("returns PDF and HTML URLs for old-style arXiv ID with version (hep-ph/9901234v1)", () => {
     const result = checkArxiv("hep-ph/9901234v1");
     const locs = assertLocations(result);
-    expect(locs).toEqual([
-      expect.objectContaining({
-        url: "https://arxiv.org/pdf/hep-ph/9901234v1.pdf",
-      }),
-    ]);
+    expect(locs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          url: "https://arxiv.org/pdf/hep-ph/9901234v1.pdf",
+        }),
+        expect.objectContaining({
+          url: "https://arxiv.org/html/hep-ph/9901234v1",
+        }),
+      ])
+    );
   });
 
   it("strips arXiv: prefix if present", () => {
     const result = checkArxiv("arXiv:2401.12345");
     const locs = assertLocations(result);
-    expect(locs).toEqual([
-      expect.objectContaining({
-        url: "https://arxiv.org/pdf/2401.12345.pdf",
-      }),
-    ]);
+    expect(locs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          url: "https://arxiv.org/pdf/2401.12345.pdf",
+        }),
+        expect.objectContaining({
+          url: "https://arxiv.org/html/2401.12345",
+        }),
+      ])
+    );
   });
 
   it("returns null for empty ID", () => {

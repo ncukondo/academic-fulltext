@@ -1,11 +1,12 @@
 /**
- * Conversion orchestrator for PMC XML to Markdown.
+ * Conversion orchestrator for PMC XML and arXiv HTML to Markdown.
  *
- * Ties together the JATS parser and Markdown writer with file I/O.
+ * Ties together the parsers and Markdown writer with file I/O.
  */
 
 import { readFile, stat, writeFile } from "node:fs/promises";
 import type { FulltextMeta } from "../types.js";
+import { parseArxivHtml } from "./arxiv-html-parser.js";
 import {
   parseJatsBackMatter,
   parseJatsBody,
@@ -80,6 +81,59 @@ export async function convertPmcXmlToMarkdown(
     result.title = metadata.title;
     result.sections = sections.length;
     result.references = references.length;
+    return result;
+  } catch (err) {
+    const result: ConvertResult = { success: false };
+    result.error = err instanceof Error ? err.message : String(err);
+    return result;
+  }
+}
+
+/**
+ * Convert an arXiv HTML file to Markdown.
+ *
+ * Reads the HTML, parses it into a JatsDocument via the arXiv HTML parser,
+ * writes Markdown using the shared writer, and optionally updates meta.json.
+ */
+export async function convertArxivHtmlToMarkdown(
+  htmlPath: string,
+  mdPath: string,
+  metaPath?: string
+): Promise<ConvertResult> {
+  try {
+    const html = await readFile(htmlPath, "utf-8");
+    const doc = parseArxivHtml(html);
+
+    // Write Markdown
+    const md = writeMarkdown(doc);
+    await writeFile(mdPath, md, "utf-8");
+
+    // Update meta.json if path provided and file exists
+    if (metaPath) {
+      try {
+        await stat(metaPath);
+        const metaRaw = await readFile(metaPath, "utf-8");
+        const meta = JSON.parse(metaRaw) as FulltextMeta;
+        const mdStat = await stat(mdPath);
+
+        meta.files.markdown = {
+          filename: "fulltext.md",
+          source: "conversion",
+          retrievedAt: new Date().toISOString(),
+          size: mdStat.size,
+          convertedFrom: "fulltext.html",
+        };
+
+        await writeFile(metaPath, `${JSON.stringify(meta, null, 2)}\n`, "utf-8");
+      } catch {
+        // meta.json doesn't exist or can't be read, skip update
+      }
+    }
+
+    const result: ConvertResult = { success: true };
+    result.title = doc.metadata.title;
+    result.sections = doc.sections.length;
+    result.references = doc.references.length;
     return result;
   } catch (err) {
     const result: ConvertResult = { success: false };
