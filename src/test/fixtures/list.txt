@@ -1,0 +1,119 @@
+#: 1                                                                             
+Key: qureshi-2023                                                                                          
+タイトル（要約）: ChatGPT and LLMs for SR automation?                                                      
+DOI: https://doi.org/10.1186/s13643-023-02243-z                                                            
+────────────────────────────────────────                                         
+#: 2
+Key: khraisha-2024
+タイトル（要約）: Can LLMs replace humans in SRs? (GPT-4)
+DOI: https://doi.org/10.1002/jrsm.1715
+────────────────────────────────────────
+#: 3
+Key: matsui-2024
+タイトル（要約）: 3-layer LLM screening (GPT-3.5/4)
+DOI: https://doi.org/10.2196/52758
+────────────────────────────────────────
+#: 4
+Key: gartlehner-2024
+タイトル（要約）: LLM data extraction proof-of-concept (Claude 2)
+DOI: https://doi.org/10.1002/jrsm.1710
+────────────────────────────────────────
+#: 5
+Key: konet-2024
+タイトル（要約）: Claude 2 vs GPT-4 data extraction
+DOI: https://doi.org/10.1002/jrsm.1732
+────────────────────────────────────────
+#: 6
+Key: clark-2025
+タイトル（要約）: GenAI in evidence synthesis: systematic review
+DOI: https://doi.org/10.1017/rsm.2025.16
+────────────────────────────────────────
+#: 7
+Key: flemyng-2025
+タイトル（要約）: Position statement (Cochrane/Campbell/JBI/CEE)
+DOI: https://doi.org/10.1186/s13750-025-00374-5
+────────────────────────────────────────
+#: 8
+Key: oami-2024
+タイトル（要約）: LLM screening performance (JAMA Network Open)
+DOI: https://doi.org/10.1001/jamanetworkopen.2024.20496
+────────────────────────────────────────
+#: 9
+Key: dennstdt-2024
+タイトル（要約）: Open-source LLM screening comparison
+DOI: https://doi.org/10.1186/s13643-024-02575-4
+────────────────────────────────────────
+#: 10
+Key: oconnor-2024
+タイトル（要約）: ICASR 8th meeting: LLMs & automation
+DOI: https://doi.org/10.1186/s13643-024-02666-2
+────────────────────────────────────────
+#: 11
+Key: wang-2025
+タイトル（要約）: TrialMind: accelerating clinical evidence synthesis
+DOI: https://doi.org/10.1038/s41746-025-01840-7
+────────────────────────────────────────
+#: 12
+Key: cao-2025
+タイトル（要約）: Prompt templates for LLM-driven SR screening
+DOI: https://doi.org/10.7326/annals-24-02189
+────────────────────────────────────────
+#: 13
+Key: alshami-2023
+タイトル（要約）: Automating SR process with ChatGPT
+DOI: https://doi.org/10.3390/systems11070351
+────────────────────────────────────────
+#: 14
+Key: tran-2024
+タイトル（要約）: GPT-3.5 sensitivity/specificity for screening
+DOI: https://doi.org/10.7326/m23-3389
+────────────────────────────────────────
+#: 15
+Key: sanghera-2025
+タイトル（要約）: LLM ensemble for abstract screening
+DOI: https://doi.org/10.1093/jamia/ocaf050
+────────────────────────────────────────
+#: 16
+Key: issaiy-2024
+タイトル（要約）: ChatGPT screening methodology insights
+DOI: https://doi.org/10.1186/s12874-024-02203-8
+────────────────────────────────────────
+#: 17
+Key: lai-2025
+タイトル（要約）: LLMs for data extraction + RoB (complementary medicine)
+DOI: https://doi.org/10.1038/s41746-025-01457-w
+────────────────────────────────────────
+#: 18
+Key: lai-2024
+タイトル（要約）: Assessing RoB with LLMs (JAMA Network Open)
+DOI: https://doi.org/10.1001/jamanetworkopen.2024.12687
+────────────────────────────────────────
+#: 19
+Key: nordmann-2025
+タイトル（要約）: ChatGPT for scoping review abstract screening
+DOI: https://doi.org/10.1186/s12913-025-13901-4
+────────────────────────────────────────
+#: 20
+Key: ruan-2025
+タイトル（要約）: AI tools for automatic literature screening
+DOI: https://doi.org/10.1186/s12874-025-02644-9
+────────────────────────────────────────
+#: 21
+Key: khan-2025
+タイトル（要約）: Collaborative LLMs for living SR data extraction
+DOI: https://doi.org/10.1093/jamia/ocae325
+────────────────────────────────────────
+#: 22
+Key: li-2024
+タイトル（要約）: LLM abstract screening comparative analysis
+DOI: https://doi.org/10.1186/s13643-024-02609-x
+────────────────────────────────────────
+#: 23
+Key: lieberum-2025
+タイトル（要約）: LLMs for SRs: scoping review (J Clin Epi)
+DOI: https://doi.org/10.1016/j.jclinepi.2025.111746
+────────────────────────────────────────
+#: 24
+Key: holst-2025
+タイトル（要約）: PRISMA-trAIce checklist
+DOI: https://doi.org/10.2196/80247
