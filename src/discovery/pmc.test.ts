@@ -4,16 +4,16 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { OALocation } from "../types.js";
-import { checkPmc, getPmcUrls } from "./pmc.js";
+import { type PmcCheckResult, checkPmc, getPmcUrls } from "./pmc.js";
 
 // Mock fetch globally
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
 /** Helper to assert non-null and return typed value */
-function assertLocations(result: OALocation[] | null): OALocation[] {
+function assertResult(result: PmcCheckResult | null): PmcCheckResult {
   expect(result).not.toBeNull();
-  return result as OALocation[];
+  return result as PmcCheckResult;
 }
 
 describe("getPmcUrls", () => {
@@ -51,19 +51,21 @@ describe("checkPmc", () => {
     mockFetch.mockReset();
   });
 
-  it("returns OALocations (PDF + XML) for a PMC article via PMCID", async () => {
+  it("returns PmcCheckResult (PDF + XML) for a PMC article via PMCID", async () => {
     const result = await checkPmc({ pmcid: "PMC1234567" });
 
-    const locs = assertLocations(result);
-    expect(locs).toHaveLength(2);
-    const types = locs.map((l) => l.urlType);
+    const { locations, discoveredPmcid } = assertResult(result);
+    expect(locations).toHaveLength(2);
+    const types = locations.map((l) => l.urlType);
     expect(types).toContain("pdf");
     expect(types).toContain("xml");
+    // No discoveredPmcid — PMCID was already known
+    expect(discoveredPmcid).toBeUndefined();
     // No fetch needed — PMCID is already known
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it("looks up PMCID from PMID via E-utilities", async () => {
+  it("looks up PMCID from PMID via E-utilities and includes discoveredPmcid", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: () =>
@@ -83,8 +85,9 @@ describe("checkPmc", () => {
 
     const result = await checkPmc({ pmid: "12345678" });
 
-    const locs = assertLocations(result);
-    expect(locs).toHaveLength(2);
+    const { locations, discoveredPmcid } = assertResult(result);
+    expect(locations).toHaveLength(2);
+    expect(discoveredPmcid).toBe("PMC7654321");
     expect(mockFetch).toHaveBeenCalledTimes(1);
     expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("elink.fcgi"));
     expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("id=12345678"));

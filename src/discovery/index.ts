@@ -47,14 +47,6 @@ type SourceCheckerResult =
   | undefined;
 type SourceChecker = (article: DiscoveryArticle, config: DiscoveryConfig) => SourceCheckerResult;
 
-async function checkPmcSource(article: DiscoveryArticle): Promise<OALocation[] | null | undefined> {
-  if (!article.pmid && !article.pmcid) return undefined;
-  const ids: { pmid?: string; pmcid?: string } = {};
-  if (article.pmid) ids.pmid = article.pmid;
-  if (article.pmcid) ids.pmcid = article.pmcid;
-  return await checkPmc(ids);
-}
-
 function checkArxivSource(article: DiscoveryArticle): OALocation[] | null | undefined {
   if (!article.arxivId) return undefined;
   return checkArxiv(article.arxivId);
@@ -68,9 +60,8 @@ async function checkCoreSource(
   return await checkCore(article.doi, config.coreApiKey);
 }
 
-/** Map of source name to its checker function (excluding unpaywall, handled specially). */
+/** Map of source name to its checker function (excluding unpaywall and pmc, handled specially). */
 const sourceCheckers: Record<string, SourceChecker> = {
-  pmc: checkPmcSource,
   arxiv: checkArxivSource,
   core: checkCoreSource,
 };
@@ -161,6 +152,32 @@ async function checkUnpaywallSource(
   }
 }
 
+/** Check PMC source with discovered-ID propagation. */
+async function checkPmcSourceWithIds(
+  enriched: DiscoveryArticle,
+  state: CheckState,
+  discoveredIds: { pmcid?: string; pmid?: string }
+): Promise<void> {
+  if (!enriched.pmid && !enriched.pmcid) return;
+
+  const ids: { pmid?: string; pmcid?: string } = {};
+  if (enriched.pmid) ids.pmid = enriched.pmid;
+  if (enriched.pmcid) ids.pmcid = enriched.pmcid;
+
+  state.sourcesChecked++;
+  try {
+    const result = await checkPmc(ids);
+    if (!result) return;
+
+    state.locations.push(...result.locations);
+    if (result.discoveredPmcid) {
+      discoveredIds.pmcid = discoveredIds.pmcid ?? result.discoveredPmcid;
+    }
+  } catch (err) {
+    state.errors.push({ source: "pmc", error: String(err) });
+  }
+}
+
 /** Check a single non-unpaywall source, updating state. */
 async function checkGenericSource(
   source: string,
@@ -192,9 +209,9 @@ async function lazyPmcCheck(
 
   discoveredIds.pmcid = discoveredIds.pmcid ?? state.unpaywallPmcid;
   try {
-    const pmcLocations = await checkPmc({ pmcid: state.unpaywallPmcid });
-    if (pmcLocations) {
-      state.locations.push(...pmcLocations);
+    const pmcResult = await checkPmc({ pmcid: state.unpaywallPmcid });
+    if (pmcResult) {
+      state.locations.push(...pmcResult.locations);
     }
   } catch (err) {
     state.errors.push({ source: "pmc-lazy", error: String(err) });
@@ -224,6 +241,8 @@ export async function discoverOA(
   for (const source of sourceOrder) {
     if (source === "unpaywall") {
       await checkUnpaywallSource(enriched, config, state);
+    } else if (source === "pmc") {
+      await checkPmcSourceWithIds(enriched, state, discoveredIds);
     } else {
       await checkGenericSource(source, enriched, config, state);
     }

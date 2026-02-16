@@ -20,6 +20,11 @@ export interface PmcOptions {
   apiKey?: string;
 }
 
+export interface PmcCheckResult {
+  locations: OALocation[];
+  discoveredPmcid?: string;
+}
+
 /** Strip "PMC" prefix from PMCID, returning just the numeric part */
 function stripPmcPrefix(pmcid: string): string {
   return pmcid.replace(/^PMC/i, "");
@@ -98,17 +103,17 @@ async function lookupPmcid(pmid: string, options?: PmcOptions): Promise<string |
 export async function checkPmc(
   ids: PmcIdentifiers,
   options?: PmcOptions
-): Promise<OALocation[] | null> {
+): Promise<PmcCheckResult | null> {
   // If PMCID is already known, generate URLs directly
   if (ids.pmcid) {
-    return getPmcUrls(ids.pmcid);
+    return { locations: getPmcUrls(ids.pmcid) };
   }
 
   // If only PMID is known, look up PMCID
   if (ids.pmid) {
     const pmcid = await lookupPmcid(ids.pmid, options);
     if (!pmcid) return null;
-    return getPmcUrls(pmcid);
+    return { locations: getPmcUrls(pmcid), discoveredPmcid: pmcid };
   }
 
   // No identifiers provided

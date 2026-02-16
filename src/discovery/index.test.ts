@@ -55,7 +55,7 @@ describe("discoverOA", () => {
       },
     ];
 
-    mockCheckPmc.mockResolvedValue(pmcLocations);
+    mockCheckPmc.mockResolvedValue({ locations: pmcLocations });
     mockCheckArxiv.mockReturnValue(null);
     mockCheckUnpaywallDetailed.mockResolvedValue({ locations: unpaywallLocations });
     mockCheckCore.mockResolvedValue(null);
@@ -73,9 +73,11 @@ describe("discoverOA", () => {
   });
 
   it("determines oaStatus as open when locations found", async () => {
-    mockCheckPmc.mockResolvedValue([
-      { source: "pmc", url: "https://pmc.example.com/pdf", urlType: "pdf", version: "published" },
-    ]);
+    mockCheckPmc.mockResolvedValue({
+      locations: [
+        { source: "pmc", url: "https://pmc.example.com/pdf", urlType: "pdf", version: "published" },
+      ],
+    });
     mockCheckArxiv.mockReturnValue(null);
     mockCheckUnpaywallDetailed.mockResolvedValue(null);
     mockCheckCore.mockResolvedValue(null);
@@ -267,6 +269,26 @@ describe("discoverOA", () => {
     const result = await discoverOA(baseArticle, baseConfig);
     expect(result.discoveredIds).toBeDefined();
   });
+
+  it("records discovered PMCID in discoveredIds when PMC lookup via PMID succeeds", async () => {
+    mockCheckPmc.mockResolvedValue({
+      locations: [
+        { source: "pmc", url: "https://pmc.example.com/pdf", urlType: "pdf", version: "published" },
+      ],
+      discoveredPmcid: "PMC8888888",
+    });
+    mockCheckArxiv.mockReturnValue(null);
+    mockCheckUnpaywallDetailed.mockResolvedValue(null);
+    mockCheckCore.mockResolvedValue(null);
+
+    const result = await discoverOA(
+      { doi: "10.1234/example", pmid: "12345678" },
+      baseConfig
+    );
+
+    expect(result.oaStatus).toBe("open");
+    expect(result.discoveredIds.pmcid).toBe("PMC8888888");
+  });
 });
 
 describe("discoverOA - NCBI enrichment", () => {
@@ -293,7 +315,7 @@ describe("discoverOA - NCBI enrichment", () => {
     const pmcLocations: OALocation[] = [
       { source: "pmc", url: "https://pmc.example.com/pdf", urlType: "pdf", version: "published" },
     ];
-    mockCheckPmc.mockResolvedValue(pmcLocations);
+    mockCheckPmc.mockResolvedValue({ locations: pmcLocations });
     mockCheckArxiv.mockReturnValue(null);
     mockCheckUnpaywallDetailed.mockResolvedValue(null);
 
@@ -409,7 +431,7 @@ describe("discoverOA - lazy PMC check from Unpaywall", () => {
     const pmcLocations: OALocation[] = [
       { source: "pmc", url: "https://pmc.example.com/pdf", urlType: "pdf", version: "published" },
     ];
-    mockCheckPmc.mockResolvedValue(pmcLocations);
+    mockCheckPmc.mockResolvedValue({ locations: pmcLocations });
 
     const result = await discoverOA(doiOnlyArticle, baseConfig);
 
@@ -427,7 +449,7 @@ describe("discoverOA - lazy PMC check from Unpaywall", () => {
     const pmcLocations: OALocation[] = [
       { source: "pmc", url: "https://pmc.example.com/pdf", urlType: "pdf", version: "published" },
     ];
-    mockCheckPmc.mockResolvedValue(pmcLocations);
+    mockCheckPmc.mockResolvedValue({ locations: pmcLocations });
     mockCheckArxiv.mockReturnValue(null);
     mockCheckUnpaywallDetailed.mockResolvedValue({
       locations: [
