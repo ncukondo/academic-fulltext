@@ -77,6 +77,7 @@ async function lookupPmcid(pmid: string, options?: PmcOptions): Promise<string |
     linksets?: Array<{
       linksetdbs?: Array<{
         dbto: string;
+        linkname?: string;
         links?: string[];
       }>;
     }>;
@@ -88,7 +89,9 @@ async function lookupPmcid(pmid: string, options?: PmcOptions): Promise<string |
   const firstLinkset = linksets[0 as number];
   if (!firstLinkset?.linksetdbs) return null;
 
-  const pmcLink = firstLinkset.linksetdbs.find((db) => db.dbto === "pmc");
+  const pmcLink = firstLinkset.linksetdbs.find(
+    (db) => db.dbto === "pmc" && db.linkname === "pubmed_pmc"
+  );
   if (!pmcLink?.links || pmcLink.links.length === 0) return null;
 
   const pmcNumericId = pmcLink.links[0 as number];

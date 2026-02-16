@@ -3,7 +3,6 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { OALocation } from "../types.js";
 import { type PmcCheckResult, checkPmc, getPmcUrls } from "./pmc.js";
 
 // Mock fetch globally
@@ -75,6 +74,7 @@ describe("checkPmc", () => {
               linksetdbs: [
                 {
                   dbto: "pmc",
+                  linkname: "pubmed_pmc",
                   links: ["7654321"],
                 },
               ],
@@ -122,6 +122,29 @@ describe("checkPmc", () => {
     await expect(checkPmc({ pmid: "12345678" })).rejects.toThrow("Network error");
   });
 
+  it("returns null when only pubmed_pmc_refs exists (cited papers, not the article itself)", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          linksets: [
+            {
+              linksetdbs: [
+                {
+                  dbto: "pmc",
+                  linkname: "pubmed_pmc_refs",
+                  links: ["12743645", "9876543"],
+                },
+              ],
+            },
+          ],
+        }),
+    });
+
+    const result = await checkPmc({ pmid: "12324557" });
+    expect(result).toBeNull();
+  });
+
   it("returns null on empty linksets response", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -142,7 +165,7 @@ describe("checkPmc", () => {
         Promise.resolve({
           linksets: [
             {
-              linksetdbs: [{ dbto: "pmc", links: ["7654321"] }],
+              linksetdbs: [{ dbto: "pmc", linkname: "pubmed_pmc", links: ["7654321"] }],
             },
           ],
         }),
