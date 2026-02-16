@@ -281,10 +281,7 @@ describe("discoverOA", () => {
     mockCheckUnpaywallDetailed.mockResolvedValue(null);
     mockCheckCore.mockResolvedValue(null);
 
-    const result = await discoverOA(
-      { doi: "10.1234/example", pmid: "12345678" },
-      baseConfig
-    );
+    const result = await discoverOA({ doi: "10.1234/example", pmid: "12345678" }, baseConfig);
 
     expect(result.oaStatus).toBe("open");
     expect(result.discoveredIds.pmcid).toBe("PMC8888888");
