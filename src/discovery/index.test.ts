@@ -396,6 +396,116 @@ describe("discoverOA - NCBI enrichment", () => {
   });
 });
 
+describe("discoverOA - skipped sources", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mockResolveDoiToPmcid.mockResolvedValue(null);
+  });
+
+  const baseConfig = {
+    unpaywallEmail: "test@example.com",
+    coreApiKey: "",
+    preferSources: ["pmc", "arxiv", "unpaywall", "core"] as string[],
+  };
+
+  it("records skipped source when Unpaywall email is missing", async () => {
+    mockCheckPmc.mockResolvedValue(null);
+    mockCheckArxiv.mockReturnValue(null);
+
+    const result = await discoverOA(
+      { doi: "10.1234/example", pmid: "12345678" },
+      { ...baseConfig, unpaywallEmail: "" }
+    );
+
+    expect(result.skipped).toContainEqual({
+      source: "unpaywall",
+      reason: "unpaywallEmail not configured",
+    });
+  });
+
+  it("records skipped source when no PMCID or PMID for PMC", async () => {
+    mockCheckArxiv.mockReturnValue(null);
+    mockCheckUnpaywallDetailed.mockResolvedValue(null);
+
+    const result = await discoverOA({ doi: "10.1234/example" }, baseConfig);
+
+    expect(result.skipped).toContainEqual({
+      source: "pmc",
+      reason: "no PMCID or PMID available",
+    });
+  });
+
+  it("records skipped source when no arXiv ID", async () => {
+    mockCheckPmc.mockResolvedValue(null);
+    mockCheckUnpaywallDetailed.mockResolvedValue(null);
+
+    const result = await discoverOA(
+      { doi: "10.1234/example", pmid: "12345678" },
+      baseConfig
+    );
+
+    expect(result.skipped).toContainEqual({
+      source: "arxiv",
+      reason: "no arXiv ID available",
+    });
+  });
+
+  it("records skipped source when no CORE API key", async () => {
+    mockCheckPmc.mockResolvedValue(null);
+    mockCheckArxiv.mockReturnValue(null);
+    mockCheckUnpaywallDetailed.mockResolvedValue(null);
+
+    const result = await discoverOA(
+      { doi: "10.1234/example", pmid: "12345678" },
+      baseConfig
+    );
+
+    expect(result.skipped).toContainEqual({
+      source: "core",
+      reason: "coreApiKey not configured",
+    });
+  });
+
+  it("returns empty skipped array when all sources are checked", async () => {
+    mockCheckPmc.mockResolvedValue(null);
+    mockCheckArxiv.mockReturnValue(null);
+    mockCheckUnpaywallDetailed.mockResolvedValue(null);
+    mockCheckCore.mockResolvedValue(null);
+
+    const result = await discoverOA(
+      { doi: "10.1234/example", pmid: "12345678", arxivId: "2401.12345" },
+      { ...baseConfig, coreApiKey: "test-key" }
+    );
+
+    expect(result.skipped).toEqual([]);
+  });
+
+  it("records multiple skipped sources together", async () => {
+    const result = await discoverOA(
+      {},
+      { ...baseConfig, unpaywallEmail: "" }
+    );
+
+    expect(result.skipped).toContainEqual({
+      source: "pmc",
+      reason: "no PMCID or PMID available",
+    });
+    expect(result.skipped).toContainEqual({
+      source: "arxiv",
+      reason: "no arXiv ID available",
+    });
+    expect(result.skipped).toContainEqual({
+      source: "unpaywall",
+      reason: "unpaywallEmail not configured",
+    });
+    expect(result.skipped).toContainEqual({
+      source: "core",
+      reason: "coreApiKey not configured",
+    });
+    expect(result.skipped).toHaveLength(4);
+  });
+});
+
 describe("discoverOA - lazy PMC check from Unpaywall", () => {
   beforeEach(() => {
     vi.resetAllMocks();

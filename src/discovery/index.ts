@@ -29,6 +29,7 @@ export interface DiscoveryResult {
   oaStatus: OAStatus;
   locations: OALocation[];
   errors: Array<{ source: string; error: string }>;
+  skipped: Array<{ source: string; reason: string }>;
   discoveredIds: { pmcid?: string; pmid?: string };
 }
 
@@ -37,26 +38,27 @@ const DEFAULT_SOURCE_ORDER = ["pmc", "arxiv", "unpaywall", "core"];
 
 /**
  * A source checker returns:
- * - undefined if the source is not applicable (precondition not met, skip entirely)
+ * - { skipped: string } if the source is not applicable (with reason)
  * - OALocation[] | null if the source was checked (null means checked but nothing found)
  */
 type SourceCheckerResult =
-  | Promise<OALocation[] | null | undefined>
+  | Promise<OALocation[] | null | { skipped: string }>
   | OALocation[]
   | null
-  | undefined;
+  | { skipped: string };
 type SourceChecker = (article: DiscoveryArticle, config: DiscoveryConfig) => SourceCheckerResult;
 
-function checkArxivSource(article: DiscoveryArticle): OALocation[] | null | undefined {
-  if (!article.arxivId) return undefined;
+function checkArxivSource(article: DiscoveryArticle): OALocation[] | null | { skipped: string } {
+  if (!article.arxivId) return { skipped: "no arXiv ID available" };
   return checkArxiv(article.arxivId);
 }
 
 async function checkCoreSource(
   article: DiscoveryArticle,
   config: DiscoveryConfig
-): Promise<OALocation[] | null | undefined> {
-  if (!config.coreApiKey || !article.doi) return undefined;
+): Promise<OALocation[] | null | { skipped: string }> {
+  if (!config.coreApiKey) return { skipped: "coreApiKey not configured" };
+  if (!article.doi) return { skipped: "no DOI available" };
   return await checkCore(article.doi, config.coreApiKey);
 }
 
@@ -126,6 +128,7 @@ async function enrichArticleIds(
 interface CheckState {
   locations: OALocation[];
   errors: Array<{ source: string; error: string }>;
+  skipped: Array<{ source: string; reason: string }>;
   sourcesChecked: number;
   unpaywallPmcid?: string;
 }
@@ -136,7 +139,14 @@ async function checkUnpaywallSource(
   config: DiscoveryConfig,
   state: CheckState
 ): Promise<void> {
-  if (!config.unpaywallEmail || !enriched.doi) return;
+  if (!config.unpaywallEmail) {
+    state.skipped.push({ source: "unpaywall", reason: "unpaywallEmail not configured" });
+    return;
+  }
+  if (!enriched.doi) {
+    state.skipped.push({ source: "unpaywall", reason: "no DOI available" });
+    return;
+  }
 
   state.sourcesChecked++;
   try {
@@ -158,7 +168,10 @@ async function checkPmcSourceWithIds(
   state: CheckState,
   discoveredIds: { pmcid?: string; pmid?: string }
 ): Promise<void> {
-  if (!enriched.pmid && !enriched.pmcid) return;
+  if (!enriched.pmid && !enriched.pmcid) {
+    state.skipped.push({ source: "pmc", reason: "no PMCID or PMID available" });
+    return;
+  }
 
   const ids: { pmid?: string; pmcid?: string } = {};
   if (enriched.pmid) ids.pmid = enriched.pmid;
@@ -189,7 +202,10 @@ async function checkGenericSource(
   if (!checker) return;
 
   const result = await runSourceChecker(checker, enriched, config);
-  if (result.skipped) return;
+  if (result.skipReason) {
+    state.skipped.push({ source, reason: result.skipReason });
+    return;
+  }
 
   state.sourcesChecked++;
   if (result.error) {
@@ -234,7 +250,7 @@ export async function discoverOA(
 ): Promise<DiscoveryResult> {
   const { enriched, discoveredIds } = await enrichArticleIds(article, config);
 
-  const state: CheckState = { locations: [], errors: [], sourcesChecked: 0 };
+  const state: CheckState = { locations: [], errors: [], skipped: [], sourcesChecked: 0 };
 
   const sourceOrder = config.preferSources.length > 0 ? config.preferSources : DEFAULT_SOURCE_ORDER;
 
@@ -251,11 +267,11 @@ export async function discoverOA(
   await lazyPmcCheck(enriched, state, discoveredIds);
 
   const oaStatus = determineOAStatus(state.locations, state.errors, state.sourcesChecked);
-  return { oaStatus, locations: state.locations, errors: state.errors, discoveredIds };
+  return { oaStatus, locations: state.locations, errors: state.errors, skipped: state.skipped, discoveredIds };
 }
 
 interface SourceCheckResult {
-  skipped: boolean;
+  skipReason?: string;
   locations?: OALocation[];
   error?: string;
 }
@@ -268,9 +284,11 @@ async function runSourceChecker(
 ): Promise<SourceCheckResult> {
   try {
     const result = await checker(article, config);
-    if (result === undefined) return { skipped: true };
-    return { skipped: false, locations: result ?? [] };
+    if (result !== null && typeof result === "object" && "skipped" in result) {
+      return { skipReason: result.skipped };
+    }
+    return { locations: result ?? [] };
   } catch (err) {
-    return { skipped: false, error: String(err) };
+    return { error: String(err) };
   }
 }
