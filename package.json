@@ -1,6 +1,6 @@
 {
   "name": "@ncukondo/academic-fulltext",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "OA discovery, PDF/XML download, and PMC JATS XML to Markdown conversion for academic articles",
   "type": "module",
   "exports": {
