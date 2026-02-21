@@ -497,6 +497,86 @@ describe("discoverOA - skipped sources", () => {
   });
 });
 
+describe("discoverOA - checkedSources", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mockResolveDoiToPmcid.mockResolvedValue(null);
+  });
+
+  const baseConfig = {
+    unpaywallEmail: "test@example.com",
+    coreApiKey: "",
+    preferSources: ["pmc", "arxiv", "unpaywall", "core"] as string[],
+  };
+
+  it("includes queried sources in checkedSources", async () => {
+    mockCheckPmc.mockResolvedValue(null);
+    mockCheckArxiv.mockReturnValue(null);
+    mockCheckUnpaywallDetailed.mockResolvedValue(null);
+    mockCheckCore.mockResolvedValue(null);
+
+    const result = await discoverOA(
+      { doi: "10.1234/example", pmid: "12345678", arxivId: "2401.12345" },
+      { ...baseConfig, coreApiKey: "test-key" }
+    );
+
+    expect(result.checkedSources).toContain("pmc");
+    expect(result.checkedSources).toContain("arxiv");
+    expect(result.checkedSources).toContain("unpaywall");
+    expect(result.checkedSources).toContain("core");
+  });
+
+  it("does not include skipped sources in checkedSources", async () => {
+    // DOI-only article: pmc skipped (no pmid/pmcid), arxiv skipped (no arxivId), core skipped (no key)
+    mockCheckUnpaywallDetailed.mockResolvedValue(null);
+
+    const result = await discoverOA({ doi: "10.1234/example" }, baseConfig);
+
+    expect(result.checkedSources).toContain("unpaywall");
+    expect(result.checkedSources).not.toContain("pmc");
+    expect(result.checkedSources).not.toContain("arxiv");
+    expect(result.checkedSources).not.toContain("core");
+  });
+
+  it("includes errored sources in checkedSources", async () => {
+    mockCheckPmc.mockRejectedValue(new Error("PMC error"));
+    mockCheckArxiv.mockReturnValue(null);
+    mockCheckUnpaywallDetailed.mockRejectedValue(new Error("Unpaywall error"));
+    mockCheckCore.mockResolvedValue(null);
+
+    const result = await discoverOA({ doi: "10.1234/example", pmid: "12345678" }, baseConfig);
+
+    expect(result.checkedSources).toContain("pmc");
+    expect(result.checkedSources).toContain("unpaywall");
+    expect(result.errors).toHaveLength(2);
+  });
+
+  it("includes pmc-lazy in checkedSources when lazy PMC check runs", async () => {
+    mockCheckArxiv.mockReturnValue(null);
+    mockCheckUnpaywallDetailed.mockResolvedValue({
+      locations: [
+        {
+          source: "unpaywall",
+          url: "https://example.com/pdf",
+          urlType: "pdf",
+          version: "published",
+        },
+      ],
+      pmcid: "PMC7777777",
+    });
+    mockCheckPmc.mockResolvedValue({
+      locations: [
+        { source: "pmc", url: "https://pmc.example.com/pdf", urlType: "pdf", version: "published" },
+      ],
+    });
+
+    const result = await discoverOA({ doi: "10.1234/example" }, baseConfig);
+
+    expect(result.checkedSources).toContain("unpaywall");
+    expect(result.checkedSources).toContain("pmc-lazy");
+  });
+});
+
 describe("discoverOA - lazy PMC check from Unpaywall", () => {
   beforeEach(() => {
     vi.resetAllMocks();

@@ -30,6 +30,7 @@ export interface DiscoveryResult {
   locations: OALocation[];
   errors: Array<{ source: string; error: string }>;
   skipped: Array<{ source: string; reason: string }>;
+  checkedSources: string[];
   discoveredIds: { pmcid?: string; pmid?: string };
 }
 
@@ -129,6 +130,7 @@ interface CheckState {
   locations: OALocation[];
   errors: Array<{ source: string; error: string }>;
   skipped: Array<{ source: string; reason: string }>;
+  checkedSources: string[];
   sourcesChecked: number;
   unpaywallPmcid?: string;
 }
@@ -149,6 +151,7 @@ async function checkUnpaywallSource(
   }
 
   state.sourcesChecked++;
+  state.checkedSources.push("unpaywall");
   try {
     const detailed = await checkUnpaywallDetailed(enriched.doi, config.unpaywallEmail);
     if (!detailed) return;
@@ -178,6 +181,7 @@ async function checkPmcSourceWithIds(
   if (enriched.pmcid) ids.pmcid = enriched.pmcid;
 
   state.sourcesChecked++;
+  state.checkedSources.push("pmc");
   try {
     const result = await checkPmc(ids);
     if (!result) return;
@@ -208,6 +212,7 @@ async function checkGenericSource(
   }
 
   state.sourcesChecked++;
+  state.checkedSources.push(source);
   if (result.error) {
     state.errors.push({ source, error: result.error });
   } else if (result.locations) {
@@ -224,6 +229,7 @@ async function lazyPmcCheck(
   if (!state.unpaywallPmcid || enriched.pmcid) return;
 
   discoveredIds.pmcid = discoveredIds.pmcid ?? state.unpaywallPmcid;
+  state.checkedSources.push("pmc-lazy");
   try {
     const pmcResult = await checkPmc({ pmcid: state.unpaywallPmcid });
     if (pmcResult) {
@@ -250,7 +256,13 @@ export async function discoverOA(
 ): Promise<DiscoveryResult> {
   const { enriched, discoveredIds } = await enrichArticleIds(article, config);
 
-  const state: CheckState = { locations: [], errors: [], skipped: [], sourcesChecked: 0 };
+  const state: CheckState = {
+    locations: [],
+    errors: [],
+    skipped: [],
+    checkedSources: [],
+    sourcesChecked: 0,
+  };
 
   const sourceOrder = config.preferSources.length > 0 ? config.preferSources : DEFAULT_SOURCE_ORDER;
 
@@ -272,6 +284,7 @@ export async function discoverOA(
     locations: state.locations,
     errors: state.errors,
     skipped: state.skipped,
+    checkedSources: state.checkedSources,
     discoveredIds,
   };
 }
