@@ -439,10 +439,7 @@ describe("discoverOA - skipped sources", () => {
     mockCheckPmc.mockResolvedValue(null);
     mockCheckUnpaywallDetailed.mockResolvedValue(null);
 
-    const result = await discoverOA(
-      { doi: "10.1234/example", pmid: "12345678" },
-      baseConfig
-    );
+    const result = await discoverOA({ doi: "10.1234/example", pmid: "12345678" }, baseConfig);
 
     expect(result.skipped).toContainEqual({
       source: "arxiv",
@@ -455,10 +452,7 @@ describe("discoverOA - skipped sources", () => {
     mockCheckArxiv.mockReturnValue(null);
     mockCheckUnpaywallDetailed.mockResolvedValue(null);
 
-    const result = await discoverOA(
-      { doi: "10.1234/example", pmid: "12345678" },
-      baseConfig
-    );
+    const result = await discoverOA({ doi: "10.1234/example", pmid: "12345678" }, baseConfig);
 
     expect(result.skipped).toContainEqual({
       source: "core",
@@ -481,10 +475,7 @@ describe("discoverOA - skipped sources", () => {
   });
 
   it("records multiple skipped sources together", async () => {
-    const result = await discoverOA(
-      {},
-      { ...baseConfig, unpaywallEmail: "" }
-    );
+    const result = await discoverOA({}, { ...baseConfig, unpaywallEmail: "" });
 
     expect(result.skipped).toContainEqual({
       source: "pmc",

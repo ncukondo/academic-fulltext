@@ -267,7 +267,13 @@ export async function discoverOA(
   await lazyPmcCheck(enriched, state, discoveredIds);
 
   const oaStatus = determineOAStatus(state.locations, state.errors, state.sourcesChecked);
-  return { oaStatus, locations: state.locations, errors: state.errors, skipped: state.skipped, discoveredIds };
+  return {
+    oaStatus,
+    locations: state.locations,
+    errors: state.errors,
+    skipped: state.skipped,
+    discoveredIds,
+  };
 }
 
 interface SourceCheckResult {
